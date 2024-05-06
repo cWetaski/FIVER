@@ -1,0 +1,3 @@
+[submodule "src/submodules/FVTool"]
+	path = src/submodules/FVTool
+	url = https://github.com/simulkade/FVTool.git
