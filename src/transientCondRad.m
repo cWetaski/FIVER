@@ -75,8 +75,8 @@ function VS_T_new = transientCondRad(N_rays,VS_T,VS_T_fixed,voxel_spaces,N_time_
     VS_T_new = VS_T;
     VS_T_old = VS_T;
     T_old = createCellVariable(thermal_mesh, VS_T_new,BC); % initial values
-    source_cell = createCellVariable(thermal_mesh,0); % Initialize source term cell variable
-
+    source_const_cell = createCellVariable(thermal_mesh,0); % Initialize source term cell variable
+    source_lin_cell = createCellVariable(thermal_mesh,0);
     %% Set up fixed temperatures
     % Pad VS_T_spec so it is the same size as the cell variables (which have ghost cells);
     VS_T_spec_padded = padarray(VS_T_fixed,[1 1 1],0,'both');
@@ -85,26 +85,42 @@ function VS_T_new = transientCondRad(N_rays,VS_T,VS_T_fixed,voxel_spaces,N_time_
     RHS_fixed = zeros(M_size(1),1);
     RHS_fixed(fixed_inds) = T_old.value(fixed_inds); % Set fixed values on RHS
     
+    M_steady = -M_diff+M_bc;
+    M_steady(fixed_inds,:) = 0;
+    M_steady = M_steady+M_fixed;
+    RHS_steady = RHS_bc;
+    RHS_steady(fixed_inds) = 0;
+    RHS_steady = RHS_steady+RHS_fixed;
+
+
     %% loop
     for i = 1:N_time_steps
         internal_itr_count = 0;
         while internal_itr_count < internal_itr_num
             internal_itr_count = internal_itr_count + 1;
             heat_flows_tic = tic;
-            VS_Q = radiativeHeatFlowsMC(N_rays,VS_T_old,voxel_spaces,"SpectralBands",spectral_bands); % (3D Double) [W]: Power in/out of each voxel
+            [VS_dQ, VS_Q_emit_prev] = radiativeHeatFlowsMC(N_rays,VS_T_old,voxel_spaces,"SpectralBands",spectral_bands); % (3D Double) [W]: Power in/out of each voxel
             heat_flows_time = toc(heat_flows_tic);
+            % Split dQ into a source term of form Y = aT + b; 
+            source_const = (VS_dQ + 4*VS_Q_emit_prev)/(VS_cc.*VS_rho.*vx_scale^3); % K/s Divide by voxel element volume to get W/m3 i.e. source term comes from divergence of radiative heat flux
+            source_const = padarray(source_const,[1,1,1],0,'both');
+            source_const_cell.value = source_const;
+            source_lin = 4*VS_Q_emit_prev./VS_T_prev/(VS_cc.*VS_rho.*vx_scale^3); % K/s
+            source_lin(isnan(source_lin)) = 0;
+            source_lin = padarray(source_lin,[1,1,1],0,'both');
+            source_lin_cell.value = source_lin; % Assign to source cell variable
+    
+            RHS_source_term = constantSourceTerm3D(source_const_cell); % Convert to RHS source term
+            M_source_term = linearSourceTerm3D(source_lin_cell);
+    
             tic
-            VS_source_term = VS_Q./(VS_cc.*VS_rho.*vx_scale^3); % [K/s]: convert Power to rate of change of temperature
-            VS_source_term(VS_T_fixed) = 0; % Set source term for fixed temperatures to 0
-            source_cell.value(2:(end-1),2:(end-1),2:(end-1)) = VS_source_term; % Assign to source cell variable
-            RHS_source_term = constantSourceTerm3D(source_cell); % Convert to RHS source term
-        
+            
             [M_trans, RHS_trans] = transientTerm(T_old, time_step); % Get transient term based on old temperature field. Don't quite understand how this works but it works
     
-            M = M_trans-M_diff+M_bc;
-            RHS = RHS_trans+RHS_bc+RHS_source_term;
+            M = M_steady + M_trans + M_source_term;
+            RHS = RHS_steady + RHS_trans + RHS_source_term;
             
-            % Set fixed temperature values;
+            % Set fixed temperature values
             M(fixed_inds,:) = 0;
             M = M + M_fixed;
     
