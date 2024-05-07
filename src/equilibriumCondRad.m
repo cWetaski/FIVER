@@ -79,7 +79,7 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr] = equilibriumCondRad(N_rays,VS_T,VS
     end
 
     %% Constants
-    sigma = 5.670374419*10^(-8); % [W/(m^2-K^4)]: Stefan-Boltzmann constant
+    %sigma = 5.670374419*10^(-8); % [W/(m^2-K^4)]: Stefan-Boltzmann constant
     
     %% Unpack relevant params from voxel space
     N_bands = length(spectral_bands)+1;
@@ -194,8 +194,7 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr] = equilibriumCondRad(N_rays,VS_T,VS
         
         T_new = solvePDE(thermal_mesh,M, RHS); % Solving linear equation M*T=RHS
 
-        VS_T_new = T_new.value(2:(end-1),2:(end-1),2:(end-1)); % updating temperatures (ignoring ghost cells)
-        
+        VS_T_new = T_new.value(2:(end-1),2:(end-1),2:(end-1)); % updating temperatures (ignoring ghost cells)        
         VS_dT = VS_T_new - VS_T_prev; % Difference from previous temperature field
         
         if C_relax ~= 1 % Apply under/overrelaxation
@@ -231,10 +230,6 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr] = equilibriumCondRad(N_rays,VS_T,VS
                 end
             end
         end
-        T_mean = squeeze(mean(VS_T_new,[2 3]));
-        x_vals = linspace(0,1,size_VS(1));
-        plot(x_vals,T_mean);drawnow();
-
         % Update temperature fields
         VS_T_prev = VS_T_new;
         VS_T_old{count_mod} = VS_T_new;

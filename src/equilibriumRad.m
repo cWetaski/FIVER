@@ -185,24 +185,7 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr, total_rays] = equilibriumRad(N_rays
                 end
             end
         end
-        %size_VS = voxel_space{1}.size;
-        % Plotting 1D nondimensional temperature at each iteration (useful for debugging parallel plate test cases)
-        % T_nondim = mean(VS_T_prev,[2 3])/max(VS_T_prev(VS_T_fixed));
-        % x_vals = linspace(0,1,size_VS(1));
-        % plot(x_vals,T_nondim);drawnow();
-
-        disp(sum(VS_dQ(:)))
-        disp(sum(VS_Q_emit_prev(:)))
         VS_T_old{count_mod} = VS_T_new; % Store temperature field for stopping check
         VS_T_prev = VS_T_new; % update temperature field for next monte carlo sim
-        if false
-            VS_T_plot = VS_T_new;
-            VS_T_plot(~(voxel_space{1}.surface_areas>0))=NaN;
-            T_plot = squeeze(mean(VS_T_plot,[1,2],'omitnan'));
-            
-            plot(T_plot); drawnow();
-        end
-        %imagesc(mean(VS_T_new,3));colorbar;clim([100,200]); drawnow;
-
     end
 end
