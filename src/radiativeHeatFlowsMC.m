@@ -1,4 +1,4 @@
-function [VS_Delta_Q, VS_Q_emit,VS_Q_absorb] = radiativeHeatFlowsMC(N_rays,VS_T,voxel_spaces,varargin)
+function [VS_Delta_Q, VS_Q_emit_no_self,VS_Q_self_absorb] = radiativeHeatFlowsMC(N_rays,VS_T,voxel_spaces,varargin)
 % RADIATIVEHEATFLOWS Calculates the radiative heat flows of each voxel using monte carlo ray tracing.
 %   N_rays are generated based on the temperature field and surface/PM properties. The rays are traced
 %   until absorption or exiting the voxel space. All voxel spaces are assumed to have the same size. So many
@@ -19,21 +19,20 @@ function [VS_Delta_Q, VS_Q_emit,VS_Q_absorb] = radiativeHeatFlowsMC(N_rays,VS_T,
 %       opaque_emissivities (3D double (0 <= eps <= 1)) [-]:    Stores the emissivity of opaque voxels
 %       PM_absorption_coeffs (3D double (k >= 0)) [1/vx]:       Stores the linear absorption coefficient of PM voxels
 %       surface_normals (3D cell):                              Stores 1x3 (normalized) surface normals for opaque surfaces
-%                                                               Computed using GetNormalsAndSurfaceAreas.m
+%                                                                   Computed using GetNormalsAndSurfaceAreas.m
 %       surface_areas (3D double (area >= 1) [vx^2]:            Stores area estimates for each opaque surface voxel
-%                                                               Computed using GetNormalsAndSurfaceAreas.m
+%                                                                   Computed using GetNormalsAndSurfaceAreas.m
 %       refractive_index (scalar double (nn >= 1)) [-]:         Refractive index of medium (only homogenous mediums allowed for 
-%                                                               now, and Snell's law not considered)
+%                                                                   now, and Snell's law not considered)
 %       size (1x3 double (int) (sz >= 1)):                      Size of voxel space
 %       voxel_scale (scalar double) [m/vx]:                     (same for every voxel space) Scale of voxels 
 %       reflective_BCs (2x3 logical):                           (same for every voxel space) Boundary conds: Rows 
 %                                                               are lower/upper bound, cols are XYZ. Specular
-%                                                               reflections
-%  spectral_bands (1D double (optional)) [um]:              Optional input for spectral bands. If spectral bands are
-%                                                           included, then voxel_space must be a cell array of VoxelSpace 
-%                                                           objects. Length of voxel_space array should be 1 longer than
-%                                                           the length of spectral_bands variable (0 and inf are
-%                                                           implied).
+%                                                                   reflections
+%  spectral_band_edges (1D double (optional)) [um]:         Optional input for spectral bands. If spectral bands are
+%                                                               included, then voxel_space must be a cell array of VoxelSpace 
+%                                                               objects. Length of voxel_space array should be 1 shorter than
+%                                                               this variable.
 % OUTPUTS:
 %   Delta_Q (3D double) [W]:                                Net power in (positive) or out (negative) of each voxel
 %   VS_Q_emit (3D double) [W]:                              Mathematical emissive power out of each voxel (used in
@@ -44,19 +43,19 @@ function [VS_Delta_Q, VS_Q_emit,VS_Q_absorb] = radiativeHeatFlowsMC(N_rays,VS_T,
 outer_timer = tic;
     %% Preamble
     
-    default_spectral_bands = []; % Array of spectral band boundaries.
+    default_spectral_band_edges = []; % Array of spectral band boundaries.
     default_output_mode = 'concise';
     valid_output_modes = {'quiet','concise','verbose'};
 
         %% Parsing Varargin
     parser = inputParser;
  
-    addParameter(parser,'SpectralBands',default_spectral_bands);
+    addParameter(parser,'SpectralBandEdges',default_spectral_band_edges);
     addParameter(parser,'OutputMode',default_output_mode, ...
         @(x) any(validatestring(x,valid_output_modes)))
     parse(parser,varargin{:});
     
-    spectral_bands = parser.Results.SpectralBands;
+    spectral_band_edges = parser.Results.SpectralBandEdges;
     output_mode = parser.Results.OutputMode;
 
     if strcmp(class(voxel_spaces),"VoxelSpace") 
@@ -71,7 +70,7 @@ outer_timer = tic;
     sigma = 5.670374419*10^(-8); % [W/(m^2-K^4)]: Stefan-Boltzmann constant
 
 
-    N_bands = length(spectral_bands)+1; % Get number of bands
+    N_bands = max(1,length(spectral_band_edges)-1); % Get number of bands
 
     %% Initialize band-arrays
     VS_Q_emit = zeros(size_VS);
@@ -93,23 +92,15 @@ outer_timer = tic;
         VS_nn = voxel_spaces{n}.refractive_indexes;
         external_fluxes = voxel_spaces{n}.external_fluxes;
  
-        if N_bands == 1 % No need to compute spectral bands, just use n^2*sigma*T^4
+        if isempty(spectral_band_edges) % No need to compute spectral bands, just use n^2*sigma*T^4
             % Do not use logical indexing since in my tests it was slower to logically index 3-4 large matrices than
             % just multiplying them all as is.
             VS_Q_emit_surf_band = sigma*vx_scale^2*VS_surf_areas.*VS_opaq_eps.*VS_nn.*VS_T.^4; % (3D double) [W]: emissive power from each surface voxel within band
             VS_Q_emit_PM_band = 4*sigma*vx_scale^2*VS_PM_kappa.*VS_nn.*VS_T.^4; % (3D double) [W]: emissive power from each PM voxel within band (Modest eq 10.54)
         else    
             % Get lower and upper wavelength of each band
-            if n == 1
-                lb = 0;
-                ub = spectral_bands(n);
-            elseif n == N_bands
-                lb = spectral_bands(n-1);
-                ub = 10^8; 
-            else
-                lb = spectral_bands(n-1);
-                ub = spectral_bands(n);
-            end
+            lb = spectral_band_edges(n);
+            ub = spectral_band_edges(n+1);
             % Compute Powers (use logical indexing to reduce amount of computations for SpectralBandPower!)
             VS_Q_emit_surf_band = zeros(size_VS);
             VS_surfaces = logical(VS_surf_areas);
@@ -151,7 +142,22 @@ outer_timer = tic;
     PDF_emit_band = (Q_emit_tot_band)/Q_emit_tot; % PDF of emissions by wavelength band
     CDF_emit_band = [0;cumsum(PDF_emit_band)]; % CDF of emissions by wavelength band
     
-    N_rays_band = histcounts(rand(N_rays,1),CDF_emit_band)'; % Determine how many rays emitted from each band probablistically
+    %N_rays_band = histcounts(rand(N_rays,1),CDF_emit_band)'; % Determine how many rays emitted from each band probablistically
+    N_rays_band = floor(N_rays*(Q_emit_tot_band)/Q_emit_tot);
+    N_rays_remaining = N_rays-sum(N_rays_band);
+    if N_rays_remaining > 0
+        remaining_Q_band = Q_emit_tot-N_rays_band*power_per_ray; % Get remaining emissive power
+        if any(remaining_Q_band(:)<0)
+            remaining_Q_band(remaining_Q_band<0) = 0;
+        end
+        CDF_emit_band_rem = [0;cumsum(remaining_Q_band/(sum(remaining_Q_band)))]; % CDF of remaining emissions from voxels in band
+        try 
+            N_rays_band = N_rays_band + histcounts(rand(N_rays_remaining,1),CDF_emit_band_rem)';
+        catch e
+            debug = 0;
+        end
+    end
+    
     N_rays_vx_band = round(N_rays_band.*Q_emit_vx_tot_bands./(Q_emit_tot_band)); % Not probabilistic, number of rays from voxels in each band
     N_rays_external_flux_band = N_rays_band-N_rays_vx_band; % Number of rays from external flux in each band
     
@@ -159,6 +165,7 @@ outer_timer = tic;
     %% Initialize results arrays
     emission_counts = zeros(N_vx_tot,1); % Combined emission counts vector
     absorption_pos = cell(N_bands,1); % Absorptions positions
+    self_absorption_pos = cell(N_bands,1);
 
     %% Monitoring
     ray_tracing_time = zeros(N_bands,1);
@@ -166,7 +173,7 @@ outer_timer = tic;
 
     for n = 1:N_bands % Don't run this in parallel, since some bands might have very little radiation thus those workers just wait around (or may have fewer bands than workers)
         if N_rays_band(n) == 0
-            continue;
+            continue
         end
         % Unpack parts of voxel space which are used for ray tracing for current band 
         VS_opaq = voxel_spaces{n}.opaque_voxels;
@@ -183,15 +190,20 @@ outer_timer = tic;
             inds_vx_band = inds_vx_bands{n};  
             Q_emit_filter = VS_Q_emit_bands{n}(inds_vx_band); % Just take emitting voxels (becomes a 1D array)
             emission_counts_band = floor(N_rays_vx_band(n)*Q_emit_filter/Q_emit_vx_tot_bands(n)); % Assign rays deterministically
-            N_rays_remaining = N_rays_vx_band(n)-sum(emission_counts_band);
-            if N_rays_remaining > 0
+            N_rays_remaining_band = N_rays_vx_band(n)-sum(emission_counts_band);
+            if N_rays_remaining_band > 0
                 remaining_Q_emit = Q_emit_filter-emission_counts_band*power_per_ray; % Get remaining emissive power
                 if any(remaining_Q_emit(:)<0)
                     remaining_Q_emit(remaining_Q_emit<0) = 0;
                 end
                 CDF_emit_vx = [0;cumsum(remaining_Q_emit/(sum(remaining_Q_emit)))]; % CDF of remaining emissions from voxels in band
-                
-                emission_counts_band = emission_counts_band + histcounts(rand(N_rays_remaining,1),CDF_emit_vx)'; % Assign remaining emissions probablistically
+                CDF_emit_vx = CDF_emit_vx/CDF_emit_vx(end);
+                rand_vals = rand(N_rays_remaining_band,1);
+                try
+                emission_counts_band = emission_counts_band + histcounts(rand_vals,CDF_emit_vx)'; % Assign remaining emissions probablistically
+                catch e
+                    debug = 0;
+                end
             end
             % Filter 0 emissions voxels
             N_vx_surf_band = nnz(emission_counts_band(1:N_vx_surf_bands(n))); % nnz -> count nonzero elements
@@ -254,34 +266,40 @@ outer_timer = tic;
         tic
         [absorption_pos_band,events] = traverseRays(rays_pos,rays_dir,VS_opaq,VS_opaq_eps,VS_surf_norms,VS_PM_kappa,VS_nn,reflective_BCs,size_VS);
         ray_tracing_time(n) = toc;
-
-        absorption_pos_band(events == 1,:) = []; % Remove exit events
-        absorption_pos{n} = absorption_pos_band;
-        % Update absorption counts
-
-
+        % inds = find(events~=4);
+        % if ~isempty(inds)
+        %     [test_pos,test_event] = traverseRays(rays_pos(inds(1),:),rays_dir(inds(1),:),VS_opaq,VS_opaq_eps,VS_surf_norms,VS_PM_kappa,VS_nn,reflective_BCs,size_VS);
+        % end
+        % Save absorptions
+        self_absorption_pos{n} = absorption_pos_band(events==4,:);
+        absorption_pos{n} = absorption_pos_band((events==2) | (events ==3),:);
+        
     end % Iterating over spectral bands
     absorption_pos = cell2mat(absorption_pos);
     absorption_counts = histcounts(absorption_pos(:,1) + ...
                                    (absorption_pos(:,2) - 1)*size_VS(1) + ...
                                    (absorption_pos(:,3) - 1)*size_VS(1)*size_VS(2), ... # This is faster version of sub2ind
                                     1:(N_vx_tot+1))';
+    self_absorption_pos = cell2mat(self_absorption_pos);
+    self_absorption_counts = histcounts(self_absorption_pos(:,1) + ...
+                                   (self_absorption_pos(:,2) - 1)*size_VS(1) + ...
+                                   (self_absorption_pos(:,3) - 1)*size_VS(1)*size_VS(2), ... # This is faster version of sub2ind
+                                    1:(N_vx_tot+1))';
+    
+    emission_counts = emission_counts-self_absorption_counts;
     %% Calculate Delta_Q
     % Net number of absorbed rays for each voxel * power per ray = Power out of each voxel
-    VS_Q_absorb = absorption_counts*power_per_ray;
-    VS_Q_absorb = reshape(VS_Q_absorb,size_VS);
+    VS_Q_self_absorb = self_absorption_counts*power_per_ray;
+    VS_Q_self_absorb = reshape(VS_Q_self_absorb,size_VS);
 
     VS_Delta_Q = (absorption_counts - emission_counts)*power_per_ray; % (1D double) [W]
     VS_Delta_Q = reshape(VS_Delta_Q,size_VS); % (3D double) [W]: reshape to 3D voxel space
+
+    VS_Q_emit_no_self = VS_Q_emit - VS_Q_self_absorb; % Remove self-absorptions from emissive power -> this is relavent for coupling with conduction 
     
     total_time = toc(outer_timer);
     if any(contains({'concise','verbose'},output_mode))
         fprintf("Heat Flows: total time = %0.1f s    ray generation = %0.1f s   ray tracing = %0.1f s\n", ... 
-                total_time,sum(ray_generation_time),sum(ray_tracing_time));  
-    if true %% DEBUG
-        VS_dQ_nan = VS_Delta_Q;
-        VS_dQ_nan(VS_surf_areas==0)=nan;
-        mean_dQ_z = squeeze(sum(VS_dQ_nan,[1,2],'omitnan'));
-
+                total_time,sum(ray_generation_time),sum(ray_tracing_time));
     end
 end

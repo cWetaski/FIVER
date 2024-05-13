@@ -25,6 +25,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
 %       1 == exit: Exited the voxel space
 %       2 == medium absorption: Absorbed by medium 
 %       3 == surface absorption: Absorbed by surface
+%       4 == medium self-absorption: Absorbed by medium from which it was emitted without ever exiting
     %% Pre-preamble
 
     max_loops = 100; % Set maximum number of loops (each iteration of the outer loop indicates a new reflection or refraction event)
@@ -45,7 +46,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
     
     parfor nn_ray = 1:N_rays
         %% Initialize temporary variables to avoid warnings:
-        end_pos = [-1,-1,-1]; event = 0; tau_ray = 0; tau_acc = 0; dist_frac_b = 0; dist_frac_c = 0; last_inc = 0; nn2 = 0; i_min = 0;
+        XYZ_0 = 0; end_pos = [-1,-1,-1]; event = 0; tau_ray = 0; tau_acc = 0; dist_frac_b = 0; dist_frac_c = 0; last_inc = 0; nn2 = 0; i_min = 0;
         
         %% Preamble Part 1
         rtrn = false;
@@ -81,14 +82,12 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
             end
         end
         
-        reflection_refraction_count = -1;
         first_pass_bool = true;
         loop_count = 0;
         while ~rtrn && loop_count < max_loops % While loop since the preamble is repeated if a ray is reflected diffusely or refracted
             loop_count = loop_count+1;
             %% Preamble part 2 - This part is repeated when there is a refraction or a diffuse surface reflection 
             % Determine signs of direction vector
-            reflection_refraction_count = reflection_refraction_count+1;
             % if reflection_refraction_count >= 100 
             %     fprintf('Ray Stuck in Traversal after %d reflections/refractions - Returning \n',reflection_refraction_count)
             %     end_pos = XYZ;
@@ -113,8 +112,9 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
             % Using a trick trick so that if sgn = 1: xs = rem, but if s = -1: xs = 1 - rem, since the direction is switched
         
             % XYZ stores the current voxel coordinate position (i.e., XYZ(1) = X coordinate, XYZ(2) = Y coordinate, etc.)
-            XYZ_0_cur = min(floor(ray_pos)+1,size_VS); % accounts for starting coordinate which is on voxel space boundary
-            XYZ = XYZ_0_cur;
+            
+            XYZ =  min(floor(ray_pos)+1,size_VS); % accounts for starting coordinate which is on voxel space boundary;
+          
             %if first_pass_bool
             %    XYZ_0 = XYZ_0_cur; % Save for debugging
             %end
@@ -155,6 +155,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
             pc = xs(ic) - 1 + (1-xs(ia))*Dc; % (p_xz')
         
             if first_pass_bool % Don't want to reset this if ray is diffusely reflected or refracted
+                XYZ_0 = XYZ; % Save origin voxel
                 % Generate optical distance that the ray can traverse before being absorbed
                 tau_ray = -log(rand); % Modest, Eq. 21.19
                 % Initialize optical depth accumulator
@@ -859,6 +860,34 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
             end   % end surface collision bool  
         %% Go back to Preamble part 2
         end % Preamble loop
+        if loop_count == max_loops % Resolve stuck rays
+            if VS_opaq(XYZ(1),XYZ(2),XYZ(3)) % Check current voxel
+                if VS_opaq_eps(XYZ(1),XYZ(2),XYZ(3))>0
+                    event = 1;
+                    end_pos = XYZ;
+                    rtrn = true;
+                else % If it's a pure reflective voxel -> move it along the surface normal into the next voxel
+                    XYZ = ceil(XYZ-0.5 + VS_surf_norms{XYZ(1),XYZ(2),XYZ(3)});
+                end
+            end
+            if VS_PM_kappa(XYZ(1),XYZ(2),XYZ(3)) > 0 && ~rtrn % Check participating media
+                event = 2;
+                end_pos = XYZ;
+                rtrn = true;
+            end
+            if ~rtrn % Pick a random absorption location (might be expensive, but hopefully this is not called frequently)
+                locs = find(VS_opaq_eps>0 || VS_PM_kappa>0);
+                [X,Y,Z] = ind2sub(size_VS,locs(randi(length(locs))));
+                ray_end_pos(nn_ray,:) = [X,Y,Z];
+                if VS_opaq_eps>0
+                    event = 1;
+                else
+                    event = 2;
+                end
+            end
+        elseif event == 2 && all(end_pos == XYZ_0) % Self absorption in participating media voxel
+            event = 4;
+        end
         rays_end_pos(nn_ray,:) = end_pos;
         rays_events(nn_ray) = event;
     end % End parfor

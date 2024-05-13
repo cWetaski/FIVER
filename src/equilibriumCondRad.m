@@ -42,7 +42,7 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr] = equilibriumCondRad(N_rays,VS_T,VS
     default_N_prev = 5; % Number of previous iterations back to compare against for automatic stopping criteria
     default_C_converge = 1.1; % Scaling constant for convergence critera
     default_relax = 1; % Under/overrelaxation constant (i.e. <1 is underrelax and >1 is overrelax)
-    default_spectral_bands = []; % Array of spectral band boundaries. 
+    default_spectral_band_edges = []; % Array of spectral band boundaries. 
     default_output_mode = 'concise';
     valid_output_modes = {'quiet','concise','verbose'};
 
@@ -54,7 +54,7 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr] = equilibriumCondRad(N_rays,VS_T,VS
     addParameter(parser,'NPreviousIterations',default_N_prev);
     addParameter(parser,'ConvergenceConstant',default_C_converge);
     addParameter(parser,'RelaxationConstant',default_relax);
-    addParameter(parser,'SpectralBands',default_spectral_bands);
+    addParameter(parser,'SpectralBandEdges',default_spectral_band_edges);
     addParameter(parser,'OutputMode',default_output_mode, ...
         @(x) any(validatestring(x,valid_output_modes)))
 
@@ -65,7 +65,7 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr] = equilibriumCondRad(N_rays,VS_T,VS
     final_level_itrs = parser.Results.NFinalLevelIterations;
     C_converge = parser.Results.ConvergenceConstant;
     C_relax = parser.Results.RelaxationConstant;
-    spectral_bands = parser.Results.SpectralBands;
+    spectral_bands = parser.Results.SpectralBandEdges;
     output_mode = parser.Results.OutputMode;
 
     if strcmp(class(voxel_spaces),"VoxelSpace") 
@@ -166,15 +166,15 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr] = equilibriumCondRad(N_rays,VS_T,VS
             count_final_level = count_final_level + 1;
         end
         count_mod = mod(count_level-1,N_prev)+1; % Get iteration mod (1,2,...,N_prev,1,2,...,N_prev,1)
-        [VS_dQ, VS_Q_emit_prev] = radiativeHeatFlowsMC(N_rays(cur_level),VS_T_prev,voxel_spaces,"SpectralBands",spectral_bands,"OutputMode",output_mode); % (3D Double) [W/vx^3]: Radiative flux divergence
+        [VS_dQ, VS_Q_emit_no_self] = radiativeHeatFlowsMC(N_rays(cur_level),VS_T_prev,voxel_spaces,"SpectralBands",spectral_bands,"OutputMode",output_mode); % (3D Double) [W/vx^3]: Radiative flux divergence
         
         VS_dQ(VS_T_fixed) = 0;
         
         % Split dQ into a source term of form Y = aT + b; 
-        source_const = (VS_dQ + 4*VS_Q_emit_prev)/vx_scale^3; % Divide by voxel element volume to get W/m3 i.e. source term comes from divergence of radiative heat flux
+        source_const = (VS_dQ + 4*VS_Q_emit_no_self)/vx_scale^3; % Divide by voxel element volume to get W/m3 i.e. source term comes from divergence of radiative heat flux
         source_const = padarray(source_const,[1,1,1],0,'both');
         source_const_cell.value = source_const;
-        source_lin = 4*VS_Q_emit_prev./VS_T_prev/vx_scale^3;
+        source_lin = 4*VS_Q_emit_no_self./VS_T_prev/vx_scale^3;
         source_lin(isnan(source_lin)) = 0;
         source_lin = padarray(source_lin,[1,1,1],0,'both');
         source_lin_cell.value = source_lin; % Assign to source cell variable

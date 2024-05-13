@@ -37,7 +37,7 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr, total_rays] = equilibriumRad(N_rays
 %                                                               a value greater than 1 for over relaxation
 % 
 %
-%       'SpectralBands' (1D double) [um] (default = []):    If spectral bands are included, then voxel_space must be a cell 
+%       'SpectralBandEdges' (1D double) [um] (default = []):    If spectral bands are included, then voxel_space must be a cell 
 %                                                           array of VoxelSpace objects (each object provides the properties
 %                                                           of the voxel space in its respective band). The length of 
 %                                                           voxel_space array should be 1 longer than the length of 
@@ -55,7 +55,7 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr, total_rays] = equilibriumRad(N_rays
     default_N_prev = 5; % Number of previous iterations back to compare against for automatic stopping criteria
     default_C_converge = 1.05; % Scaling constant for convergence critera
     default_relax = 1; % Under/overrelaxation constant (i.e. <1 is underrelax and >1 is overrelax)
-    default_spectral_bands = []; % Array of spectral band boundaries.
+    default_spectral_band_edges = []; % Array of spectral band boundaries.
     default_output_mode = 'concise';
     valid_output_modes = {'quiet','concise','verbose'};
     
@@ -67,7 +67,7 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr, total_rays] = equilibriumRad(N_rays
     addParameter(parser,'NPreviousIterations',default_N_prev);
     addParameter(parser,'ConvergenceConstant',default_C_converge);
     addParameter(parser,'RelaxationConstant',default_relax);
-    addParameter(parser,'SpectralBands',default_spectral_bands);
+    addParameter(parser,'SpectralBandEdges',default_spectral_band_edges);
     addParameter(parser,'OutputMode',default_output_mode, ...
         @(x) any(validatestring(x,valid_output_modes)))
 
@@ -78,7 +78,7 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr, total_rays] = equilibriumRad(N_rays
     final_level_itrs = parser.Results.NFinalLevelIterations;
     C_converge = parser.Results.ConvergenceConstant;
     C_relax = parser.Results.RelaxationConstant;
-    spectral_bands = parser.Results.SpectralBands;
+    spectral_bands = parser.Results.SpectralBandEdges;
     output_mode = parser.Results.OutputMode;
     
     %% Remaining Preamble
@@ -122,11 +122,11 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr, total_rays] = equilibriumRad(N_rays
             count_final_level = count_final_level + 1;
         end
         count_mod = mod(count_level-1,N_prev)+1; % Get iteration multiple (1,2,...,N_prev,1,2,...,N_prev,1)
-        [VS_dQ, VS_Q_emit_prev, ~] = radiativeHeatFlowsMC(N_rays(cur_level),VS_T_prev,voxel_space, ...
-            "SpectralBands",spectral_bands,"OutputMode",output_mode); % Ray trace
+        [VS_dQ, VS_Q_emit_no_self,VS_Q_self_absorb] = radiativeHeatFlowsMC(N_rays(cur_level),VS_T_prev,voxel_space, ...
+            "SpectralBandEdges",spectral_bands,"OutputMode",output_mode); % Ray trace
         
         VS_dQ(VS_T_fixed) = 0; % Set it so fixed temperatures don't change
-
+        VS_Q_emit_prev = VS_Q_emit_no_self + VS_Q_self_absorb; % Add self-absorptions back to emissive power
         VS_Q_emit_new = VS_Q_emit_prev+C_relax*VS_dQ; % Get new emissions
         VS_Q_emit_negative = VS_Q_emit_new<0;
         Q_emit_negative = sum(VS_Q_emit_new(VS_Q_emit_negative)); % Check for negative values
