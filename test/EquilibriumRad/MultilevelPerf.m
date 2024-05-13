@@ -32,7 +32,7 @@ eps1 = 1; % emissivity of plate 1;
 eps2 = 1; % emissivity of plate 2;
 T_i = ((T1+T2)/2); % initial guess for PM temperature
 
-scale_vx = 1; % [m/vx]: Scale of voxels
+vx_scale = 1; % [m/vx]: Scale of voxels
 
 visualize = true; % Whether to visualize voxel space at the end
 
@@ -81,7 +81,7 @@ VS_plate2(end,:,:) = 1;
 VS_opaq = logical(VS_plate1 + VS_plate2); % Join the two plates into 1 opaque voxel space;
 VS_opaq_eps = double(VS_opaq); % Both plates are black bodies
 
-[VS_surf_norms, VS_surf_areas, ~] = GetNormalsAndSurfaceAreas(VS_opaq,1); % Get surface normals and areas
+[VS_surf_norms, VS_surf_areas, ~] = getNormalsAndSurfaceAreas(VS_opaq,1); % Get surface normals and areas
 
 reflective_BCs = false(2,3); % Initialize reflective BCs
 reflective_BCs(:,2:3) = 1; % Y and Z boundaries are reflective 
@@ -104,7 +104,7 @@ voxel_space.surface_areas = VS_surf_areas;
 voxel_space.PM_absorption_coeffs = VS_PM_kappa;
 voxel_space.refractive_indexes = VS_nn;
 voxel_space.size = size_VS;
-voxel_space.voxel_scale = scale_vx;
+voxel_space.voxel_scale = vx_scale;
 voxel_space.reflective_BCs = reflective_BCs;
 
 %% Fixed temperatures for equilibrium solver
@@ -139,9 +139,9 @@ VS_PM_kappa(2:(end-1),:,:) = PM_kappa(i);
 voxel_space.PM_absorption_coeffs = VS_PM_kappa;
 
 for i = 1:N_test
-    [VS_T_equil_multi,~,total_rays_multi(i)] = EquilibriumRad(N_rays_multi,VS_T,VS_T_spec,voxel_space,max_itr);
-    [VS_T_equil_single1,~,total_rays_single1(i)] = EquilibriumRad(N_rays_single1,VS_T,VS_T_spec,voxel_space,max_itr);
-    [VS_T_equil_single2,~,total_rays_single2(i)] = EquilibriumRad(N_rays_single2,VS_T,VS_T_spec,voxel_space,max_itr);
+    [VS_T_equil_multi,~,~,~,total_rays_multi(i)] = equilibriumRad(N_rays_multi,VS_T,VS_T_spec,voxel_space);
+    [VS_T_equil_single1,~,~,~,total_rays_single1(i)] = equilibriumRad(N_rays_single1,VS_T,VS_T_spec,voxel_space);
+    [VS_T_equil_single2,~,~,~,total_rays_single2(i)] = equilibriumRad(N_rays_single2,VS_T,VS_T_spec,voxel_space);
 
     Phi_multi =  (VS_T_equil_multi(2:(end-1),:,:).^4-T2^4)/(T1^4-T2^4);
     Phi_single1 = (VS_T_equil_single1(2:(end-1),:,:).^4-T2^4)/(T1^4-T2^4);
