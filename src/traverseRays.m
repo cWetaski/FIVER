@@ -46,7 +46,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
     
     parfor nn_ray = 1:N_rays
         %% Initialize temporary variables to avoid warnings:
-        XYZ_0 = 0; end_pos = [-1,-1,-1]; event = 0; tau_ray = 0; tau_acc = 0; dist_frac_b = 0; dist_frac_c = 0; last_inc = 0; nn2 = 0; i_min = 0;
+        end_pos = [-1,-1,-1]; event = 0; tau_ray = 0; tau_acc = 0; dist_frac_b = 0; dist_frac_c = 0; last_inc = 0; nn2 = 0; i_min = 0;
         
         %% Preamble Part 1
         rtrn = false;
@@ -84,6 +84,8 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
         
         first_pass_bool = true;
         loop_count = 0;
+        XYZ_0 =  min(floor(ray_pos)+1,size_VS); % accounts for starting coordinate which is on voxel space boundary;
+          
         while ~rtrn && loop_count < max_loops % While loop since the preamble is repeated if a ray is reflected diffusely or refracted
             loop_count = loop_count+1;
             %% Preamble part 2 - This part is repeated when there is a refraction or a diffuse surface reflection 
@@ -111,13 +113,6 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
             xs = sgn.*(rem(ray_pos,1)-0.5)+0.5; % get remainder from boundary of starting voxel (note this fails if sgn = 0, but that should never occur for a real simulation.
             % Using a trick trick so that if sgn = 1: xs = rem, but if s = -1: xs = 1 - rem, since the direction is switched
         
-            % XYZ stores the current voxel coordinate position (i.e., XYZ(1) = X coordinate, XYZ(2) = Y coordinate, etc.)
-            
-            XYZ =  min(floor(ray_pos)+1,size_VS); % accounts for starting coordinate which is on voxel space boundary;
-          
-            %if first_pass_bool
-            %    XYZ_0 = XYZ_0_cur; % Save for debugging
-            %end
             % Determine driving axis
             abs_ray_dir = abs(ray_dir);
             % Note this does not sort the axes; the secondary and ternary axes form a right handed coordinate system with the driving axis
@@ -155,12 +150,15 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
             pc = xs(ic) - 1 + (1-xs(ia))*Dc; % (p_xz')
         
             if first_pass_bool % Don't want to reset this if ray is diffusely reflected or refracted
-                XYZ_0 = XYZ; % Save origin voxel
+                XYZ = XYZ_0 % On the first pass, we compute this before entering the while-loop
                 % Generate optical distance that the ray can traverse before being absorbed
                 tau_ray = -log(rand); % Modest, Eq. 21.19
                 % Initialize optical depth accumulator
                 tau_acc = -xs(ia)*default_dist*VS_PM_kappa(XYZ(1),XYZ(2),XYZ(3)); % subtraction to account for starting partway thru the voxel
                 first_pass_bool = false; % We will not repeat this for a reflected/refracted ray+
+            else % Not first pass, have to determine XYZ again.
+                % XYZ stores the current voxel coordinate position (i.e., XYZ(1) = X coordinate, XYZ(2) = Y coordinate, etc.)
+                XYZ =  min(floor(ray_pos)+1,size_VS); % accounts for starting coordinate which is on voxel space boundary;
             end
             
             % Get current medium 
