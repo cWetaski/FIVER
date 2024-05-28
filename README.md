@@ -3,7 +3,7 @@ FIVER (FInite VolumE and Ray tracer) is a MATLAB-based set of tools which can be
 
 Radiation is resolved using a voxel-based ray tracer, which can (currently) handle opaque surfaces, nonscattering participating media, spectrally varying properties and refractive interfaces. 
 
-In order to solve coupled heat transfer problems, the ray tracer has been coupled with Finite Volume Tool (FVTool) [2], the code of which is included in full in the subdirectory src/toolboxes/. Coupling with conduction has already been implemented for transient and equilibrium problems. But following the same methodology, it should not be straightforward to further couple the ray tracer with convection. 
+In order to solve coupled heat transfer problems, the ray tracer has been coupled with Finite Volume Tool (FVTool) [2], the code of which is included as a submodule in src/submodules/. Coupling with conduction has already been implemented for transient and equilibrium problems. But following the same methodology, it should not be straightforward to further couple the ray tracer with convection. 
 
 [1] Sas-Brunser, S. and Steinfeld, A. (2023). Design and Optimization of Hierarchically Ordered Porous Structures for Solar Thermochemical Fuel Production Using a Voxel-Based Monte Carlo Ray-Tracing Algorithm, ACS Engineering Au 2023 3 (5), 326-334, DOI: 10.1021/acsengineeringau.3c00013
 
