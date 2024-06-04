@@ -22,7 +22,6 @@ lambda2_m = lambda2*10^(-6);
 
 %% Planck's Law of EM Radiation [W/(m^2 um)]
 f = @(lambda_m) (2*pi*h*c^2)./(nn.^2*lambda_m.^5.*(exp((h*c)./(nn.*lambda_m.*Kb.*T))-1)); % [W/(m^2-m)]
-
 E_b_band = integral(f,lambda1_m,lambda2_m,'ArrayValued',true);
 end
 

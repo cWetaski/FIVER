@@ -40,8 +40,8 @@ file_name = 'ParallelPlatesCondPM';
 
 %% Get folders
 % Get current folder
-cur_full_file = mfilename('fullpath'); % This gets the filename of the current script
-cur_folder = fileparts(cur_full_file); % Just want the folder
+cur_folder = pwd;
+cur_folder = fileparts(cur_folder); % Just want the folder
 
 % Get plots folder and project root folder
 folders = regexp(cur_folder,'\','split');

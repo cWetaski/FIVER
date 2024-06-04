@@ -78,7 +78,7 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr, total_rays] = equilibriumRad(N_rays
     final_level_itrs = parser.Results.NFinalLevelIterations;
     C_converge = parser.Results.ConvergenceConstant;
     C_relax = parser.Results.RelaxationConstant;
-    spectral_bands = parser.Results.SpectralBandEdges;
+    spectral_band_edges = parser.Results.SpectralBandEdges;
     output_mode = parser.Results.OutputMode;
     
     %% Remaining Preamble
@@ -87,7 +87,7 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr, total_rays] = equilibriumRad(N_rays
         voxel_space = {voxel_space}; % allows this to work with a single voxel space as an input for gray radiation
     end
 
-    N_bands = length(spectral_bands)+1; 
+    N_bands = length(spectral_band_edges)-1; 
     sigma = 5.670374419*10^(-8); % [W/(m^2-K^4)]: Stefan-Boltzmann constant
     vx_scale = voxel_space{1}.voxel_scale;
 
@@ -123,7 +123,7 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr, total_rays] = equilibriumRad(N_rays
         end
         count_mod = mod(count_level-1,N_prev)+1; % Get iteration multiple (1,2,...,N_prev,1,2,...,N_prev,1)
         [VS_dQ, VS_Q_emit_no_self,VS_Q_self_absorb] = radiativeHeatFlowsMC(N_rays(cur_level),VS_T_prev,voxel_space, ...
-            "SpectralBandEdges",spectral_bands,"OutputMode",output_mode); % Ray trace
+            "SpectralBandEdges",spectral_band_edges,"OutputMode",output_mode); % Ray trace
         
         VS_dQ(VS_T_fixed) = 0; % Set it so fixed temperatures don't change
         VS_Q_emit_prev = VS_Q_emit_no_self + VS_Q_self_absorb; % Add self-absorptions back to emissive power
@@ -150,7 +150,7 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr, total_rays] = equilibriumRad(N_rays
             VS_T_new =  VS_T_prev.*(VS_Q_emit_new./VS_Q_emit_prev).^(1/4); % estimate a linear proportionality to T^4 (i.e., AT^4 = Q -> T2/T1 = (Q2/Q1)^(1/4))
             nan_vals = find(isnan(VS_T_new)); % Occurs when VS_Q_emit_prev == 0 which can happen when number of rays is small
             for i = 1:length(nan_vals) % Properly invert temperature at the specific voxel (this is expensive, so we don't want to do it a lot)
-                VS_T_new(nan_vals(i)) = fzero(@(T) TotalEmissivePowerSingle(spectral_bands,voxel_space,T,nan_vals(i))-VS_Q_emit_new(nan_vals(i)),[0,max(VS_T_new(:))]);
+                VS_T_new(nan_vals(i)) = fzero(@(T) TotalEmissivePowerSingle(spectral_band_edges,voxel_space,T,nan_vals(i))-VS_Q_emit_new(nan_vals(i)),[0,max(VS_T_new(:))]);
             end
         end
 
@@ -170,7 +170,6 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr, total_rays] = equilibriumRad(N_rays
             VS_N_dT = VS_T_new - VS_T_old{count_mod}; % Temperature field difference from N_prev iterations ago
             R_sq_N_dT = sum(VS_N_dT.^2,'all'); % Sum of square residual from 0
             R_sq_ratio = R_sq_N_dT/R_sq_dT; % Ratio of square residuals.
-            
             if strcmp(output_mode,'verbose')
                 fprintf("Ratio of square residuals: %0.3f \n",R_sq_ratio)
             end

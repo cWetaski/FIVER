@@ -41,7 +41,7 @@ T2 = 400; % [K]: Temperature of plate 2 (arbitrary)
 theta_0 = 0.75;
 
 % Number of rays per iteration
-N_rays_set = [1*10^6,8*10^6];
+N_rays_set = [1*10^6,4*10^6];
 pure_rad_scale = 1;
 
 N_Psi = 20;
@@ -51,15 +51,15 @@ plot_name = 'ParallelPlatesSpectralCondNew';
 
 %% Get folders
 % Get current folder
-cur_folder = matlab.desktop.editor.getActiveFilename;
+cur_folder = pwd;
 cur_folder = fileparts(cur_folder); % Just want the folder
 
 % Get plots folder and project root folder
 folders = regexp(cur_folder,'\','split');
 for i = length(folders):-1:1 % move backward thru folders until you find VoxelRayTracer folder
-    if folders(i) == "VoxelRayTracer"
+    if folders(i) == "FIVER"
         root_folder = strjoin(folders,'\');
-        full_file_path = fullfile(root_folder,'plots',plot_name);
+        full_file_path = fullfile(root_folder,'plots',file_name);
     else
         folders(i) = [];
     end
@@ -67,7 +67,7 @@ end
 
 %% Constants
 sigma = 5.670374419*10^(-8); % [W/m^2-K^4]; Stefan Boltzmann
-legend2 = 6.62607004*10^(-34);     % Planck's constant [J s]
+planck = 6.62607004*10^(-34);     % Planck's constant [J s]
 c = 299792458;              % speed of light in a vacuum [m/s]
 kb = 1.38064852*10^(-23);    % Boltzmann's constant [J/K]
 
@@ -90,7 +90,7 @@ for i = 1:N_cases
     if isempty(nu_bar_bands{i})
         spectral_bands = [];
     else
-        spectral_bands = flip(legend2*c./(nu_bar_bands{i}*kb*T2))*10^(6); % [um]: flip order since increasing nu -> decreasing lambda 
+        spectral_bands = [0,flip(planck*c./(nu_bar_bands{i}*kb*T2))*10^(6),1e9]; % [um]: flip order since increasing nu -> decreasing lambda 
     end
     cur_spectral_absorption_coeffs = flip(spectral_absorption_coeffs{i}); % flip order to correspond with lambda bands correctly
     PM_kappa = cur_spectral_absorption_coeffs*tau_L/X; % [1/vx]:
@@ -161,15 +161,15 @@ for i = 1:N_cases
     
     fprintf("Solving %d of %d    time = %0.3f \n",i,N_cases,toc(outer_tic))
     [VS_T_equil{i}, ~, ~, count_itr(i)] = equilibriumCondRad(N_rays,VS_T_old,VS_T_fixed,voxel_spaces, ... 
-        "SpectralBands",spectral_bands,"OutputMode","verbose", ...
-        "ConvergenceConstant",1.1);
+        "SpectralBandEdges",spectral_bands,"OutputMode","verbose", ...
+        "ConvergenceConstant",1.5,'NPreviousIterations',5);
 
     nondim_T{i} = mean(VS_T_equil{i},[2 3])/T2; % theta in Crosbie paper
     d_theta_d_tau = (nondim_T{i}(2)-nondim_T{i}(1))/(tau_L/X); % Approximation of derivative at boundary
     Psi_test = zeros(N_Psi,1);
     for j = 1:N_Psi % Calculate radiative heat flux N_psi times
         VS_dQ = radiativeHeatFlowsMC(N_rays_Psi,VS_T_equil{i},voxel_spaces, ...
-            'SpectralBands',spectral_bands,'OutputMode','quiet');
+            'SpectralBandEdges',spectral_bands,'OutputMode','quiet');
         
         nondim_radiative_flux = -mean(VS_dQ,[2,3])/vx_scale^2/(sigma*T2^4); % big F+ in Crosbie Paper, Dividing by vx_scale^2 to convert from flux divergence to flux 
         Psi_test(j) = 4*N_param(i)*d_theta_d_tau-nondim_radiative_flux(1); % Eq 33 in paper, Note that VS_dQ = radiative flux in
@@ -187,7 +187,7 @@ total_simulation_time = toc(outer_tic);
 
 
 %% Plot Solutions - This section is a mess since I quickly wanted to change the plot and just used a bunch of random continues
-color_scheme = load(fullfile(root_folder,'src','data','ColorSchemes','PREC.mat')).color_scheme;
+color_scheme = load('PREC.mat').color_scheme;
 line_width = 1;
 
 f = figure;
@@ -315,38 +315,3 @@ end
 
 fontsize(f,'increase')
 fontsize(f,'increase')
-
-
-
-savequest = questdlg("Save the plot? (this will overwrite any existing saved plot)","Save Plot",'Yes','No','No');
-
-if strcmp(savequest,'Yes')
-    % Save as 3 different file types
-    saveas(f,full_file_path,'png') % For easy viewing
-    saveas(f,full_file_path,'epsc') % For LaTeX report
-    saveas(f,full_file_path,'fig') % In case I want to edit it without running solver again
-
-    
-    params.final_N_rays = ones(N_cases,1)*N_rays(end);
-    spectral_model_text = cell(N_cases,1);
-    for i=1:N_cases
-        if spectral_absorption_coeffs{i}==[1,0]
-            spectral_model_text{i} = "A";
-        elseif spectral_absorption_coeffs{i} == [0,1]
-            spectral_model_text{i} = "B"; 
-        end
-    end
-    params.spectral_model = spectral_model_text;
-    params.N = N_param_strings';
-    params.X_size = ones(N_cases,1)*X;
-    params.Y_size = ones(N_cases,1)*Y;
-    params.Z_size = ones(N_cases,1)*Z;
-    params.total_simulation_time = ones(N_cases,1)*total_simulation_time;
-    params.Psi = Psi;
-    params.N_Psi = ones(N_cases,1)*N_Psi;
-    params.N_rays_Psi = ones(N_cases,1)*N_rays_Psi;
-    params.Psi_errors = Psi_errors;
-    params.Psi_std = Psi_std;
-    
-    writetable(struct2table(params),strcat(full_file_path,'params.txt'))
-end

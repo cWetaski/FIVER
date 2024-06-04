@@ -65,7 +65,7 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr] = equilibriumCondRad(N_rays,VS_T,VS
     final_level_itrs = parser.Results.NFinalLevelIterations;
     C_converge = parser.Results.ConvergenceConstant;
     C_relax = parser.Results.RelaxationConstant;
-    spectral_bands = parser.Results.SpectralBandEdges;
+    spectral_band_edges = parser.Results.SpectralBandEdges;
     output_mode = parser.Results.OutputMode;
 
     if strcmp(class(voxel_spaces),"VoxelSpace") 
@@ -82,7 +82,7 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr] = equilibriumCondRad(N_rays,VS_T,VS
     %sigma = 5.670374419*10^(-8); % [W/(m^2-K^4)]: Stefan-Boltzmann constant
     
     %% Unpack relevant params from voxel space
-    N_bands = length(spectral_bands)+1;
+    N_bands = length(spectral_band_edges)-1;
     size_VS = voxel_spaces{1}.size; 
     vx_scale = voxel_spaces{1}.voxel_scale;
     VS_alpha = voxel_spaces{1}.thermal_conductivity;
@@ -166,7 +166,7 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr] = equilibriumCondRad(N_rays,VS_T,VS
             count_final_level = count_final_level + 1;
         end
         count_mod = mod(count_level-1,N_prev)+1; % Get iteration mod (1,2,...,N_prev,1,2,...,N_prev,1)
-        [VS_dQ, VS_Q_emit_no_self] = radiativeHeatFlowsMC(N_rays(cur_level),VS_T_prev,voxel_spaces,"SpectralBands",spectral_bands,"OutputMode",output_mode); % (3D Double) [W/vx^3]: Radiative flux divergence
+        [VS_dQ, VS_Q_emit_no_self] = radiativeHeatFlowsMC(N_rays(cur_level),VS_T_prev,voxel_spaces,"SpectralBandEdges",spectral_band_edges,"OutputMode",output_mode); % (3D Double) [W/vx^3]: Radiative flux divergence
         
         VS_dQ(VS_T_fixed) = 0;
         

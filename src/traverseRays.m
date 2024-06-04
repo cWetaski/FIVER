@@ -28,7 +28,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
 %       4 == medium self-absorption: Absorbed by medium from which it was emitted without ever exiting
     %% Pre-preamble
 
-    max_loops = 100; % Set maximum number of loops (each iteration of the outer loop indicates a new reflection or refraction event)
+    max_loops = 91; % Set maximum number of loops (each iteration of the outer loop indicates a new reflection or refraction event)
     N_rays = size(rays_pos_start,1);
     rays_end_pos = zeros(N_rays,3);
     rays_events = zeros(N_rays,1);
@@ -46,7 +46,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
     
     parfor nn_ray = 1:N_rays
         %% Initialize temporary variables to avoid warnings:
-        end_pos = [-1,-1,-1]; event = 0; tau_ray = 0; tau_acc = 0; dist_frac_b = 0; dist_frac_c = 0; last_inc = 0; nn2 = 0; i_min = 0;
+        XYZ = 0; end_pos = [-1,-1,-1]; event = 0; tau_ray = 0; tau_acc = 0; dist_frac_b = 0; dist_frac_c = 0; last_inc = 0; nn2 = 0; i_min = 0;
         
         %% Preamble Part 1
         rtrn = false;
@@ -874,7 +874,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
                 rtrn = true;
             end
             if ~rtrn % Pick a random absorption location (might be expensive, but hopefully this is not called frequently)
-                locs = find(VS_opaq_eps>0 || VS_PM_kappa>0);
+                locs = find(VS_opaq_eps>0 | VS_PM_kappa>0);
                 [X,Y,Z] = ind2sub(size_VS,locs(randi(length(locs))));
                 ray_end_pos(nn_ray,:) = [X,Y,Z];
                 if VS_opaq_eps>0
