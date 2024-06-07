@@ -1,4 +1,4 @@
-classdef ExternalFlux
+classdef ExternalFlux < Flux
     %EXTERNALFLUX Defines an external flux which is applied to a voxel space
     %   The flux is defined in 2 Dimensions x and y, with direction vectors always having z-component >0,
     %   and then the flux is rotated according to the actual boundary which is applied to.
@@ -6,31 +6,32 @@ classdef ExternalFlux
     %   It is also assumed that the Inverse PDF functions are vectorized (for generating many rays)
     
     properties
-        voxel_space; % VoxelSpace object which the external flux is applied to
         boundary; % (scalar String) ["left","right", "bottom","top","back","front"]: the boundary which the flux is applied to.
                   %         (left/right ==  -/+ x-axis == dim 1, bottom/top == -/+ y-axis == dim 2, back/front == -/+ z-axis == dim 3)
-        power; % (scalar) [W]: The total power of the external flux.  
-        ray_gen_function; % (Function of scalar N_rays): Inverse cumulative distribution function for generating a ray originating in the x,y plane
-                             %                              The generated rays have components [x,y, dx,dy,dz] with dz > 0
         end
     
     methods
-        function [obj,voxel_space] = ExternalFlux(voxel_space,boundary,power,ray_gen_function)
+        function [obj,voxel_space] = ExternalFlux(voxel_space,power,ray_gen_function,boundary)
             %EXTERNALFLUX Constructs an ExternalFlux Object and assigns it to the VoxelSpace
             obj.voxel_space = voxel_space;
-            obj.boundary = boundary;
             obj.power = power;
             obj.ray_gen_function = ray_gen_function;
-            voxel_space.external_fluxes = [voxel_space.external_fluxes,obj];
+            obj.boundary = boundary;
+            voxel_space.fluxes = [voxel_space.fluxes,obj];
         end
         
         function [rays_pos,rays_dir] = GenerateRays(obj,N_rays)
-            %METHOD1 Summary of this method goes here
             %   Detailed explanation goes here
 
-            rays_xy = obj.ray_gen_function(N_rays);
-            rays_pos = rays_xy(:,1:2);
-            rays_dir = rays_xy(:,3:5);
+
+            rays = obj.ray_gen_function(N_rays);
+
+            if ~(all(rays(:,3)==0))
+                disp('Warning: External flux ray gen function not defined with z-component of position equal to zero')
+            end
+
+            rays_pos = rays(:,1:2); % Take only x and y position components
+            rays_dir = rays(:,4:6);
 
             %% Rotate the generated points and vectors around the center point of the domain so that they are in the appropriate plane
             % https://math.stackexchange.com/questions/2093314/rotation-matrix-of-rotation-around-a-point-other-than-the-origin

@@ -15,7 +15,7 @@ classdef VoxelSpace < matlab.mixin.Copyable
                                 %                               Rows are lower/upper bound and columns are X,Y,Z axis
         size                    % (1x3 double (int)):           Size in each dimension (X,Y,Z) of voxel space
         voxel_scale             % (scalar double) [m/vx]:       Physical scale of voxel space.
-        external_fluxes         % (1D ExternalFlux):            1D vector of ExternalFlux objects
+        fluxes                  % (1D Flux):                    1D vector of Flux objects
         surface_normal_inds
         surface_normals_lin
         size_reduced

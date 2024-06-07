@@ -79,7 +79,7 @@ outer_timer = tic;
     Q_emit_vx_tot_bands = zeros(N_bands,1);
     N_vx_surf_bands = zeros(N_bands,1);
     N_vx_PM_bands = zeros(N_bands,1);
-    Q_external_flux_band = zeros(N_bands,1);
+    Q_flux_band = zeros(N_bands,1);
 
 
     %% Get energy in each wavelength band
@@ -90,7 +90,7 @@ outer_timer = tic;
         VS_surf_areas = voxel_spaces{n}.surface_areas;
         VS_PM_kappa = voxel_spaces{n}.PM_absorption_coeffs;
         VS_nn = voxel_spaces{n}.refractive_indexes;
-        external_fluxes = voxel_spaces{n}.external_fluxes;
+        fluxes = voxel_spaces{n}.fluxes;
  
         if isempty(spectral_band_edges) % No need to compute spectral bands, just use n^2*sigma*T^4
             % Do not use logical indexing since in my tests it was slower to logically index 3-4 large matrices than
@@ -125,15 +125,15 @@ outer_timer = tic;
 
         VS_Q_emit = VS_Q_emit + VS_Q_emit_bands{n};% Get total emissive power from each voxel
         
-        for flux = external_fluxes
-            Q_external_flux_band(n) = Q_external_flux_band(n)+flux.power; % Emissive power in band from external flux(es)
+        for flux = fluxes
+            Q_flux_band(n) = Q_flux_band(n)+flux.power; % Emissive power in band from flux(es)
         end
     end
 
 
 
     %% Probablistically determine number of rays in each band
-    Q_emit_tot_band = Q_emit_vx_tot_bands+Q_external_flux_band;
+    Q_emit_tot_band = Q_emit_vx_tot_bands+Q_flux_band;
     Q_emit_tot = sum(Q_emit_tot_band); % (scalar double) [W]: Total emissive power across all bands
     % Get power power ray
     power_per_ray = Q_emit_tot/N_rays; % [W/ray]
@@ -159,7 +159,7 @@ outer_timer = tic;
     end
     
     N_rays_vx_band = round(N_rays_band.*Q_emit_vx_tot_bands./(Q_emit_tot_band)); % Not probabilistic, number of rays from voxels in each band
-    N_rays_external_flux_band = N_rays_band-N_rays_vx_band; % Number of rays from external flux in each band
+    N_rays_flux_band = N_rays_band-N_rays_vx_band; % Number of rays from flux in each band
     
     
     %% Initialize results arrays
@@ -183,9 +183,10 @@ outer_timer = tic;
         %surf_norms_lin = voxel_spaces{n}.surface_normals_lin;
         VS_PM_kappa = voxel_spaces{n}.PM_absorption_coeffs;
         VS_nn = voxel_spaces{n}.refractive_indexes;
-        external_fluxes = voxel_spaces{n}.external_fluxes;
+        fluxes = voxel_spaces{n}.fluxes;
 
         %% Handle all Emissions
+        tic
         if N_rays_vx_band(n) > 0
             inds_vx_band = inds_vx_bands{n};  
             Q_emit_filter = VS_Q_emit_bands{n}(inds_vx_band); % Just take emitting voxels (becomes a 1D array)
@@ -218,7 +219,7 @@ outer_timer = tic;
             surf_norms_band(1:N_vx_surf_band,:) = cell2mat(VS_surf_norms(inds_vx_band(1:N_vx_surf_band))); % Get surface normals for emitting surface voxels
              [X, Y, Z] = ind2sub(size_VS,inds_vx_band); % Get subscript positions of emitters
             
-            tic
+            
             rays_pos = cell(N_vx_band,1);
             rays_dir = cell(N_vx_band,1);        
             for i = 1:N_vx_band % I used to parfor this but for some reason it randomly (like 1 in 3000 times) throws an feval error. It also doesn't save much time anyway and is in fact slower in some cases.
@@ -243,19 +244,19 @@ outer_timer = tic;
             rays_pos = [];
             rays_dir = [];
         end
-        if N_rays_external_flux_band > 0
-            N_external_flux = length(external_fluxes);
-            N_rays_flux = zeros(N_external_flux,1);
-            for ii = 1:N_external_flux
-                if ii < N_external_flux
-                    N_rays_flux(ii) = round(N_rays_external_flux_band(n)*external_fluxes(ii)/Q_external_flux_band(n));
+        if N_rays_flux_band > 0
+            N_flux = length(fluxes);
+            N_rays_flux = zeros(N_flux,1);
+            for ii = 1:N_flux
+                if ii < N_flux
+                    N_rays_flux(ii) = round(N_rays_flux_band(n)*fluxes(ii)/Q_flux_band(n));
                 else
-                    N_rays_flux(ii) = N_rays_external_flux_band(n)-sum(N_rays_flux);
+                    N_rays_flux(ii) = N_rays_flux_band(n)-sum(N_rays_flux);
                 end
-                [rays_pos_external_flux,rays_dir_external_flux] = external_fluxes(ii).GenerateRays(N_rays_flux(ii));
+                [rays_pos_flux,rays_dir_flux] = fluxes(ii).GenerateRays(N_rays_flux(ii));
             end
-            rays_pos = [rays_pos;rays_pos_external_flux]; %#ok<AGROW>
-            rays_dir = [rays_dir;rays_dir_external_flux]; %#ok<AGROW>
+            rays_pos = [rays_pos;rays_pos_flux]; %#ok<AGROW>
+            rays_dir = [rays_dir;rays_dir_flux]; %#ok<AGROW>
         end
         %if any(size_VS==1) % This makes traversal faster should we have a 2D or 1D domain since we don't have to constantly bounce off the boundary
         %    rays_dir(:,size_VS==1) = 0;

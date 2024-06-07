@@ -40,7 +40,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
     %    delete(gcp) % No parallel!
     end
     if strcmp(filesep,'/') % If linux system
-    [tmp, mem_usage] = system(['cat /proc/$(pgrep MATLAB)/status | grep VmSize']);
+    [~, mem_usage] = system('cat /proc/$(pgrep MATLAB)/status | grep VmSize');
     disp(mem_usage)
     end
     
@@ -150,7 +150,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
             pc = xs(ic) - 1 + (1-xs(ia))*Dc; % (p_xz')
         
             if first_pass_bool % Don't want to reset this if ray is diffusely reflected or refracted
-                XYZ = XYZ_0 % On the first pass, we compute this before entering the while-loop
+                XYZ = XYZ_0; % On the first pass, we compute this before entering the while-loop
                 % Generate optical distance that the ray can traverse before being absorbed
                 tau_ray = -log(rand); % Modest, Eq. 21.19
                 % Initialize optical depth accumulator
@@ -697,7 +697,6 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
                                                 % New position in 1x1 plane normal to surface vector and centered on the
                                                 % intersection of the surface normal and voxel boundary. 
                     ray_pos = (XYZ - 0.5)+ dist*surf_norm;
-                    sgn = sign(ray_dir); % Update sign
                 end
             else % Not a surface collision
                 %% Resolve Medium Interface or Edge Case of opaque non-surface
