@@ -1,6 +1,6 @@
 function Q_emit = totalEmissivePowerSingle(lambdas,voxel_spaces,T,i)
-%TOTALEMISSIVEPOWER Get total emissive power for voxel space with varying spectral properties
-%   Detailed explanation goes here
+    %TOTALEMISSIVEPOWER Get total emissive power for voxel space with varying spectral properties
+    %   Detailed explanation goes here
 Q_emit = 0;
 if T == 0
     return;

@@ -1,34 +1,35 @@
-% Traverse Rays in 3D
+%   AUTHOR: Charles Wetaski
+%   LAST CHECKED: 2024-06-07
 
 function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start,VS_opaq,VS_opaq_eps,VS_surf_norms,VS_PM_kappa,VS_nn,reflective_BCs,size_VS)
-% TRAVERSERAYS - Traces a set of rays from starting position and direction through voxel space until absorption or
-%                 exiting the voxel space. 
-%                   
-% INPUTS:
-%   rays_pos_start (Nx3 double) [vx]:               Position where rays originates
-%  rays_dir_start (Nx3 double) [vx]:               Directions of rays
-%   VS_opaq (3D logical):                           Stores whether a voxel is opaque (i.e., not PM and not empty)     
-%   VS_opaq_eps (3D double (0 <= eps <= 1)) [-]:    Stores emissivity of opaque voxels
-%   VS_surf_norms (3D cell):                        Stores 1x3 vectors of surface normals. Empty cell if not a
-%                                                   surface voxel.
-%   VS_PM_kappa (3D double (abs >= 0)) [1/vx]:        Stores the linear absorption coefficient of PM voxels.
-%   VS_nn   (3D double (nn >= 1)) [1/vx]:           Stores refractive index at each location
-%   reflective_BCs (2x3 logical):                   Boundary conds: Rows are lower/upper bound, cols are XYZ. A
-%                                                   reflective boundary reflects the ray specularly.
-%   size_VS (1x3 double (int, sz >= 1)) [vx]:       Size of voxel space in each dimension, although this can easily
-%                                                   be determined in the function, it is ~5% faster to pass it.
-% OUTPUTS:
-%   end_pos (1x3 double (int)):                     Ray end position, for exit event, will be a voxel coordinate
-%                                                   outside of Voxel Space.
-%   event (double (int)):                           Different possible events (listed below) use numerical encoding
-%                                                   since it is much faster when manipulating cell arrays of events.
-%       1 == exit: Exited the voxel space
-%       2 == medium absorption: Absorbed by medium 
-%       3 == surface absorption: Absorbed by surface
-%       4 == medium self-absorption: Absorbed by medium from which it was emitted without ever exiting
+    % TRAVERSERAYS - Traces a set of rays from starting position and direction through voxel space until absorption or
+    %                 exiting the voxel space. 
+    %                   
+    % INPUTS:
+    %   rays_pos_start (Nx3 double) [vx]:               Positions where rays originate
+    %   rays_dir_start (Nx3 double) [vx]:               Directions of rays
+    %   VS_opaq (3D logical):                           Stores whether a voxel is opaque (i.e., not PM and not empty)     
+    %   VS_opaq_eps (3D double (in [0,1])) [-]:         Stores emissivity of opaque voxels
+    %   VS_surf_norms (3D cell):                        Stores 1x3 vectors of surface normals. Empty cell if not a
+    %                                                       surface voxel.
+    %   VS_PM_kappa (3D double (>= 0)) [1/vx]:          Stores the linear absorption coefficient of PM voxels.
+    %   VS_nn   (3D double (>= 1)) [1/vx]:              Stores refractive index at each location
+    %   reflective_BCs (2x3 logical):                   Boundary conds: Rows are lower/upper bound, cols are XYZ. A
+    %                                                       reflective boundary reflects the ray specularly.
+    %   size_VS (1x3 double (int, sz >= 1)) [vx]:       Size of voxel space in each dimension, although this can easily
+    %                                                       be determined in the function, it is ~5% faster to pass it.
+    % OUTPUTS:
+    %   rays_end_pos (Nx3 double (int)):                End positions. For exit events, position will correspond to voxel 
+    %                                                   coordinate outside of Voxel Space.
+    %   event (double (int)):                           Different possible events (listed below) use numerical encoding
+    %                                                   since it is much faster when manipulating arrays of events.
+    %       1 == exit: Exited the voxel space
+    %       2 == medium absorption: Absorbed by medium 
+    %       3 == surface absorption: Absorbed by surface
+    %       4 == medium self-absorption: Absorbed by medium from which it was emitted without ever exiting
     %% Pre-preamble
 
-    max_loops = 91; % Set maximum number of loops (each iteration of the outer loop indicates a new reflection or refraction event)
+    max_loops = 100; % Set maximum number of loops (each iteration of the outer loop indicates a new reflection or refraction event)
     N_rays = size(rays_pos_start,1);
     rays_end_pos = zeros(N_rays,3);
     rays_events = zeros(N_rays,1);
@@ -875,7 +876,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
             if ~rtrn % Pick a random absorption location (might be expensive, but hopefully this is not called frequently)
                 locs = find(VS_opaq_eps>0 | VS_PM_kappa>0);
                 [X,Y,Z] = ind2sub(size_VS,locs(randi(length(locs))));
-                ray_end_pos(nn_ray,:) = [X,Y,Z];
+                end_pos = [X,Y,Z];
                 if VS_opaq_eps>0
                     event = 1;
                 else

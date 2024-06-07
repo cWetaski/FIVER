@@ -1,9 +1,12 @@
+%   AUTHOR: Charles Wetaski
+%   LAST CHECKED: 2024-06-07
+
 classdef ExternalFlux < Flux
     %EXTERNALFLUX Defines an external flux which is applied to a voxel space
-    %   The flux is defined in 2 Dimensions x and y, with direction vectors always having z-component >0,
-    %   and then the flux is rotated according to the actual boundary which is applied to.
-    %   It is assumed that the arguments to the Inverse PDF functions are uniformly generated random numbers in [0,1]
-    %   It is also assumed that the Inverse PDF functions are vectorized (for generating many rays)
+    %   The flux is defined positionally in 2 dimensions x and y (z-component of position from ray_gen function is ignored) 
+    %   with direction vectors always having z-component >0, and then the flux is rotated according to the specified 
+    %   boundary.
+    %
     
     properties
         boundary; % (scalar String) ["left","right", "bottom","top","back","front"]: the boundary which the flux is applied to.
@@ -27,7 +30,10 @@ classdef ExternalFlux < Flux
             rays = obj.ray_gen_function(N_rays);
 
             if ~(all(rays(:,3)==0))
-                disp('Warning: External flux ray gen function not defined with z-component of position equal to zero')
+                disp('Warning: External flux ray gen function not defined with z-component of position == zero')
+            end
+            if any(rays(:,6)<0)
+                disp('Warning: External flux ray gen function not defined with z-component of direction >= zero')
             end
 
             rays_pos = rays(:,1:2); % Take only x and y position components

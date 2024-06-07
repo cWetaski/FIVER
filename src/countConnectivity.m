@@ -1,3 +1,6 @@
+%   AUTHOR: Charles Wetaski
+%   LAST CHECKED: 2024-06-07
+
 function conn_counts = countConnectivity(A)
     %COUNTCONNECTIVITY Returns 6-connectivity of A
     %   This function counts number of nonzero 6-connected neighbours of each non-ero value of A.
@@ -8,6 +11,7 @@ function conn_counts = countConnectivity(A)
     %   A (3D double): Any 3D matrix
     % OUTPUTS:
     %   conn_counts (3D double (int)) [-]: Corresponding 6-connectivity of each nonzero value of A.
+    %
     
     A = logical(A); % convert to binary array (i.e. 0 if empty, 1 if not empty)
 

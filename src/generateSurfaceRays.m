@@ -1,12 +1,16 @@
+%   AUTHOR: Charles Wetaski
+%   LAST CHECKED: 2024-06-07
+
 function [ray_pos,ray_dir] = generateSurfaceRays(pos_vx,surf_norm,N_rays)
-% GENERATESURFACERAY Generates a ray from a surface voxel based on the voxel coordinate and surface normal 
-% INPUT:
-%   pos_vx (1x3 double (int)):      Voxel coordinate in voxel space
-%   surf_norm (1x3 double):         Normal vector to the surface
-%   N_rays (scalar double (int)):   (Optional) Number of rays to generate (default = 1)
-% OUTPUT:
-%   ray_pos (Nx3 double):           Ray position (N = N_rays)
-%   ray_dir (Nx3 double):           Ray direction (N = N_rays)
+    % GENERATESURFACERAY Generates a ray from a surface voxel based on the voxel coordinate and surface normal 
+    % INPUT:
+    %   pos_vx (1x3 double (int)):      Voxel coordinate in voxel space
+    %   surf_norm (1x3 double):         Local normal vector of the surface
+    %   N_rays (scalar double (int)):   (OPTIONAL) Number of rays to generate (default = 1)
+    % OUTPUT:
+    %   ray_pos (Nx3 double):           Ray position (N = N_rays)
+    %   ray_dir (Nx3 double):           Ray direction (N = N_rays)
+    %
     if nargin == 2
         N_rays = 1;
     end

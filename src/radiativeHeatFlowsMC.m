@@ -1,46 +1,30 @@
-function [VS_Delta_Q, VS_Q_emit_no_self,VS_Q_self_absorb] = radiativeHeatFlowsMC(N_rays,VS_T,voxel_spaces,varargin)
-% RADIATIVEHEATFLOWS Calculates the radiative heat flows of each voxel using monte carlo ray tracing.
-%   N_rays are generated based on the temperature field and surface/PM properties. The rays are traced
-%   until absorption or exiting the voxel space. All voxel spaces are assumed to have the same size. So many
-%   arguments are used because MATLAB is slower at indexing large arrays when they are stored in structs/objects so
-%   we're stuck with slightly overwhelming function definitions.
-%   Conditions: 
-%       Gray surfaces
-%       Gray nonscattering medium with constant refractive index
-%   Terms:
-%       PM = Participating Media
-%       VS = Voxel Space
-%
-% INPUTS:
-%   N_rays (scalar double) [-]:                             Number of rays to generate
-%   VS_T (3D double (T >= 0)) [K]:                          Temperature field of the voxel space
-%   voxel_spaces (1D cell of VoxelSpace objects):           Voxel space object with the following:
-%       opaque_voxels (3D logical):                             Stores which voxels are opaque (i.e., not PM, and not empty) voxels.
-%       opaque_emissivities (3D double (0 <= eps <= 1)) [-]:    Stores the emissivity of opaque voxels
-%       PM_absorption_coeffs (3D double (k >= 0)) [1/vx]:       Stores the linear absorption coefficient of PM voxels
-%       surface_normals (3D cell):                              Stores 1x3 (normalized) surface normals for opaque surfaces
-%                                                                   Computed using GetNormalsAndSurfaceAreas.m
-%       surface_areas (3D double (area >= 1) [vx^2]:            Stores area estimates for each opaque surface voxel
-%                                                                   Computed using GetNormalsAndSurfaceAreas.m
-%       refractive_index (scalar double (nn >= 1)) [-]:         Refractive index of medium (only homogenous mediums allowed for 
-%                                                                   now, and Snell's law not considered)
-%       size (1x3 double (int) (sz >= 1)):                      Size of voxel space
-%       voxel_scale (scalar double) [m/vx]:                     (same for every voxel space) Scale of voxels 
-%       reflective_BCs (2x3 logical):                           (same for every voxel space) Boundary conds: Rows 
-%                                                               are lower/upper bound, cols are XYZ. Specular
-%                                                                   reflections
-%  spectral_band_edges (1D double (optional)) [um]:         Optional input for spectral bands. If spectral bands are
-%                                                               included, then voxel_space must be a cell array of VoxelSpace 
-%                                                               objects. Length of voxel_space array should be 1 shorter than
-%                                                               this variable.
-% OUTPUTS:
-%   Delta_Q (3D double) [W]:                                Net power in (positive) or out (negative) of each voxel
-%   VS_Q_emit (3D double) [W]:                              Mathematical emissive power out of each voxel (used in
-%                                                           equilibrium solver). Note this is not actually equal
-%                                                           to the emissive power since actual ray emission locations 
-%                                                           are generated probablistically.
-%   VS_Q_absorb (3D double) [W]:                            Power absorbed by each voxel  
-outer_timer = tic;
+%   AUTHOR: Charles Wetaski
+%   LAST CHECKED: 2024-06-07 (Charles Wetaski)
+
+function [VS_dQ, VS_Q_emit_no_self,VS_Q_self_absorb] = radiativeHeatFlowsMC(N_rays,VS_T,voxel_spaces,varargin)
+    % RADIATIVEHEATFLOWS Calculates the radiative heat flows of each voxel using monte carlo ray tracing.
+    %   N_rays are generated based on the temperature field and voxel_spaces properties. The rays are traced
+    %   until absorption or exiting the voxel space.
+    %
+    % INPUTS:
+    %   N_rays (scalar double) [-]:                 Number of rays to generate
+    %   VS_T (3D double (T >= 0)) [K]:              Temperature field of the voxel space
+    %   voxel_spaces (1D cell of VoxelSpaces):      Can also be a singular VoxelSpace object. See VoxelSpace.m for properties
+    %   varargin:                                   Optional ("Name",value) pair arguments, default values defined below.
+    %       "SpectralBandEdges" (1D double) [um]:   List of wavelengths corresponding to spectral bands. Should have length
+    %                                                   which is 1 greater than the length of the vector of voxel_spaces,
+    %                                                   as the properties in each voxel_space correspond to the 
+    %                                                   properties in the respective wavelength band. 
+    %       "OutputMode"                            Determines how much info is written to the command window.
+    %                                                   Options are ["quiet","concise","verbose"]      
+    % OUTPUTS:
+    %   VS_dQ (3D double) [W]:                      Net change in power of each voxel
+    %   VS_Q_emit_no_self (3D double) [W]:          Emissive power of each voxel excluding self absorptions.
+    %                                                   Self absorptions refer to rays which are emitted by
+    %                                                   the same ray they are absorbed by.
+    %   VS_Q_self_absorb (3D double) [W]:           Self-absorption power of each voxel.
+    %
+    outer_timer = tic;
     %% Preamble
     
     default_spectral_band_edges = []; % Array of spectral band boundaries.
@@ -293,8 +277,8 @@ outer_timer = tic;
     VS_Q_self_absorb = self_absorption_counts*power_per_ray;
     VS_Q_self_absorb = reshape(VS_Q_self_absorb,size_VS);
 
-    VS_Delta_Q = (absorption_counts - emission_counts)*power_per_ray; % (1D double) [W]
-    VS_Delta_Q = reshape(VS_Delta_Q,size_VS); % (3D double) [W]: reshape to 3D voxel space
+    VS_dQ = (absorption_counts - emission_counts)*power_per_ray; % (1D double) [W]
+    VS_dQ = reshape(VS_dQ,size_VS); % (3D double) [W]: reshape to 3D voxel space
 
     VS_Q_emit_no_self = VS_Q_emit - VS_Q_self_absorb; % Remove self-absorptions from emissive power -> this is relavent for coupling with conduction 
     

@@ -1,53 +1,40 @@
+%   AUTHOR: Charles Wetaski
+%   LAST CHECKED: 2024-06-07
+
 function [VS_T_new, VS_dQ, VS_dT, count_itr, total_rays] = equilibriumRad(N_rays,VS_T,VS_T_fixed,voxel_space,varargin)
-% MC_EQUILIBRIUM Iteratively finds the equilibrium temperature field for a voxel space
-%   Conditions: 
-%       Gray surfaces
-%       Gray nonscattering medium with constant refractive index
-%   Terms:
-%       PM = Participating Media
-%       VS = Voxel Space
-%
-% INPUTS:
-%   N_rays (1D double) [-]:                                 Number of rays per iteration, or an increasing vector of
-%                                                           ray numbers. The solver will automatically go to the
-%                                                           next ray level when it detects that it has reached a
-%                                                           stationary solution. Unless N_rays is a scalar, the last
-%                                                           level will only be iterated on 3 times. 
-%
-%   VS_T (3D double (T >= 0)) [K]:                          Initial temperature field of voxel space
-%
-%   VS_T_fixed (3D logical):                                Logical array of voxels with fixed temperature (if any)
-%                                                           The corresponding value is assumed to be the one given
-%                                                           in the temperature_field of voxel_space.   
-%
-%   voxel_space (VoxelSpace object):                        Voxel space object (see src/VoxelSpace.m for fields)
-%
-%   varargin (optional inputs) enter as 'name', value pairs:
-%       'MaxIterations' (scalar double (int)) (default = 200):  Maximum number of iterations per level.
-%
-%       'NFinalLevelIterations' (scalar double) (default = 3):  Number of iterations in the final level
-%
-%       'NPreviousIterations' (scalar double (int)) (default = 1):  Number of previous iterations stored for automatic stopping criteria 
-%
-%       'ConvergenceConstant' (scalar double) (default = 1):    Enter a value less than 1 for stricter convergence (but may
-%                                                               never converge). Enter a value greater than 1 for easier
-%                                                               convergence (but may stop iterating prematurely).
-%
-%       'RelaxationConstant' (scalar double) (default = 1):     Enter a value less than 1 for under relaxation, enter a
-%                                                               a value greater than 1 for over relaxation
-% 
-%
-%       'SpectralBandEdges' (1D double) [um] (default = []):    If spectral bands are included, then voxel_space must be a cell 
-%                                                           array of VoxelSpace objects (each object provides the properties
-%                                                           of the voxel space in its respective band). The length of 
-%                                                           voxel_space array should be 1 longer than the length of 
-%                                                           spectral_bands variable (0 and inf are implied).
-% OUTPUTS:
-%   VS_T (3D double) [K]:                                   Temperature field at equilibrium
-%   VS_dQ (3D double) [W/m^3]:                              Radiative flux divergence field at equilibrium
-%   VS_dT (3D double) [K]:                                  Change in temperature field at last iteration
-%   count_itr (scalar):                                     Total number of iterations across all levels
-%   total_rays (scalar):                                    Total number of rays traced
+    % equilibriumRad Iteratively finds the equilibrium temperature field for a voxel space, radiation only
+    % Inputs:
+    %   N_rays (1D double) [-]:                     Number of rays per iteration, or an increasing vector of ray numbers. 
+    %                                                   The solver will automatically go to the next ray level when it 
+    %                                                   detects that it has reached a stationary solution. 
+    %                                                   Unless N_rays is a scalar, the final level will iterate a 
+    %                                                   specified number of times
+    %   VS_T (3D double (T >= 0)) [K]:              Initial temperature field of the voxel space
+    %   VS_T_fixed (3D logical):                    Logical array defining which voxels (if any) have fixed temperatures
+    %   voxel_spaces (1D cell of VoxelSpaces):      Can also be a singular VoxelSpace object. See VoxelSpace.m for properties
+    %   varargin:                                   Optional ("Name",value) pair arguments, default values defined below.
+    %       "MaxIterations" (double (int)):         Maximum number of iterations per ray_level
+    %       "NFinalLevelIterations" (double (int)): Number of times to iterate at the final ray-level (unused if N_rays is a scalar)
+    %       "NPreviousIterations" (double (int)):   Number of previous iterations to store for estimating whether the 
+    %                                                   solution is stationary. A larger value is more reliable but 
+    %                                                   necessarily requires more iterations at each level and increases
+    %                                                   the memory demand.
+    %       "ConvergenceConstant" (double):         Determines how strict the convergence criteria is.
+    %       "RelaxationConstant"  (double):         Under/Over Relaxation constant applied at each iteration step
+    %       "SpectralBandEdges" (1D double) [um]:   List of wavelengths corresponding to spectral bands. Should have length
+    %                                                   which is 1 greater than the length of the vector of voxel_spaces,
+    %                                                   as the properties in each voxel_space correspond to the 
+    %                                                   properties in the respective wavelength band. 
+    %       "OutputMode"                            Determines how much info is written to the command window.
+    %                                                   Options are ["quiet","concise","verbose"] 
+    %       
+    % Outputs:
+    %   VS_T_new (3D double) [K]:                   Final temperature field
+    %   VS_dQ (3D double) [W]:                      Change in emissive power of each voxel from final iteration
+    %   VS_dT (3D double) [K]:                      Change in temperature field from final iteration
+    %   count_itr (double (int)):                   Total number of iterations computed in the simulation
+    %   total_rays (double (int)):                  Total number of rays traced in the simulation
+    %
 
     %% Default Optional Parameters
     default_max_itrs = 100; % Maximum number of iterations per ray level

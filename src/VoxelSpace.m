@@ -1,5 +1,10 @@
+%   AUTHOR: Charles Wetaski
+%   LAST CHECKED: 2024-06-07
+
 classdef VoxelSpace < matlab.mixin.Copyable
-    %VOXELSPACE Stores all physical info about a voxel space. Note that this is a copyable handle object. Calling copy(VoxelSpace) creates a shallow copy.
+    %VOXELSPACE Stores all physical info about a voxel space. 
+    % Note that this is a copyable handle object. Calling copy(VoxelSpace) creates a shallow copy.
+    %
     properties
         opaque_voxels           % (3D logical):                 True if voxels are opaque
         opaque_emissivities     % (3D double) [-]:              Emissivities of opaque voxels

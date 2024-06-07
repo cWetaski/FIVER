@@ -1,37 +1,25 @@
+%   AUTHOR: Charles Wetaski
+%   LAST CHECKED: 2024-06-07
+% TODO: convert long list of argument to varargin (should have use_internal_itr (default true), spectral_band_edges (default []), and verbose (default concise))
+
 function VS_T_new = transientCondRad(N_rays,VS_T,VS_T_fixed,voxel_spaces,N_time_steps,time_step,use_internal_itr,spectral_band_edges)
-% CONDRADTRANSIENT Solves the transient coupled heat transfer problem with conduction and radiation
-% Inputs:
-%   N_rays (scalar double (int)):       Number of rays to trace at each iteration
-%   VS_T (3D double (T >= 0)) [K]:      Initial temperature field of the voxel space
-%   VS_T_fixed (3D logical):            Logical array defining which voxels (if any) have fixed temperatures
-%   voxel_space (VoxelSpace object):                            Voxel space object with the following:
-%       opaque_voxels (3D logical):                             Stores which voxels are opaque (i.e., not PM, and not empty) voxels.
-%       opaque_emissivities (3D double (0 <= eps <= 1)) [-]:    Stores the emissivity of opaque voxels
-%       PM_absorption_coeffs (3D double (k >= 0)) [1/vx]:       Stores the linear absorption coefficient of PM voxels
-%       surface_normals (3D cell):                              Stores 1x3 (normalized) surface normals for opaque surfaces
-%                                                               Computed using GetNormalsAndSurfaceAreas.m
-%       surface_areas (3D double (area >= 1) [vx^2]:            Stores area estimates for each opaque surface voxel
-%                                                               Computed using GetNormalsAndSurfaceAreas.m
-%       thermal_conds (3D double) [W/m-K]:                      Stores thermal conductivity of each voxel (only used in conduction problem)
-%       densities (3D double) [kg/m^3]:                         Stores density of each voxel (only used in transient problem)
-%       specific_heats (3D double) [J/kg-K]:                    Stores specific heat of each voxel (only used in transient problem)
-%       refractive_index (scalar double (nn >= 1)) [-]:         Refractive index of medium (only homogenous mediums allowed for 
-%                                                               now, and Snell's law not considered)
-%       size (1x3 double (int) (sz >= 1)):                      Size of voxel space
-%       voxel_scale (scalar double) [m/vx]:                     Scale of voxels
-%       reflective_BCs (2x3 logical):                           Boundary conds: Rows are lower/upper bound, cols are XYZ. A
-%                                                               reflective boundary reflects the ray specularly
-%   N_t_steps (scalar double (int)):        Number of time steps to compute
-%   t_step (scalar double) [s]:             Time step size
-%   use_internal_itr (bool):                Whether to internally iterate on each step
-%   spectral_band_edges (1D double (opt)) [um]:  Optional input for spectral bands. If spectral bands are
-%                                           included, then voxel_space must be a cell array of VoxelSpace 
-%                                           objects. Length of voxel_space array should be 1 less than
-%                                           the length of spectral_band_edges variable.
-%
-% Outputs:
-%   VS_T_new (3D double):               Final temperature field
-%   residuals_steady (3D double):       Residual of final temperature field from steady state heat transfer problem    
+    % CONDRADTRANSIENT Solves the transient coupled heat transfer problem with conduction and radiation
+    % Inputs:
+    %   N_rays (scalar double (int)):               Number of rays to trace at each iteration
+    %   VS_T (3D double (T >= 0)) [K]:              Initial temperature field of the voxel space
+    %   VS_T_fixed (3D logical):                    Logical array defining which voxels (if any) have fixed temperatures
+    %   voxel_spaces (1D cell of VoxelSpaces):      Can also be a singular VoxelSpace object. See VoxelSpace.m for properties
+    %   N_t_steps (scalar double (int)):            Number of time steps to compute
+    %   t_step (scalar double) [s]:                 Time step size
+    %   use_internal_itr (bool):                    Whether to internally iterate on each step
+    %   spectral_band_edges (1D double (opt)) [um]: (OPTIONAL) List of wavelengths corresponding to spectral bands. Should have length
+    %                                                   which is 1 greater than the length of the vector of voxel_spaces,
+    %                                                   as the properties in each voxel_space correspond to the 
+    %                                                   properties in the respective wavelength band. 
+    %
+    % Outputs:
+    %   VS_T_new (3D double):               Final temperature field
+    %
     %% Check for spectral bands
     if nargin == 7
         spectral_band_edges = [];

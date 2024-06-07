@@ -1,14 +1,18 @@
-function [VS_surf_norms,VS_surf_areas,inds,surf_norms_lin,inds_sparse] = getNormalsAndSurfaceAreas(VS_opaq,ns,VS_nn)
-%GETNORMALSANDSURFACEAREAS Returns the normal vector and surface area (in vx^2) of each external surface voxel in VS
-%   INPUTS:
-%       VS_opaq (3D logical):       Voxel space of opaque voxels
-%       ns (scalar double (int)):   Neighbourhood size for normal estimation   
-%       VS_nn (3D double (nn >= 1)):OPTIONAL Voxel space of refractive indices (for problems with refraction interfaces)
-%   OUTPUTS:
-%       norms (Nx3 double):         Matrix of (normalized) surface normals of each surface voxels
-%       areas (Nx1 double) [vx^2]:  Vector of surface areas of each surface voxel 
-%       inds (Nx1 double):          Vector of linear indices of each surface voxel in the voxel space
-    
+%   AUTHOR: Charles Wetaski
+%   LAST CHECKED: 2024-06-07
+
+function [VS_surf_norms,VS_surf_areas,inds] = getNormalsAndSurfaceAreas(VS_opaq,ns,VS_nn)
+    %GETNORMALSANDSURFACEAREAS Returns the normal vector and surface area (in vx^2) of each external surface voxel in VS
+    %   INPUTS:
+    %       VS_opaq (3D logical):           Voxel space of opaque voxels
+    %       ns (scalar double (int)):       Neighbourhood size for normal estimation   
+    %       VS_nn (3D double (nn >= 1)):    (OPTIONAL) Voxel space of refractive indices.
+    %                                           For problems with refraction interfaces.
+    %   OUTPUTS:
+    %       VS_surf_norms (3D double):      Matrix of (normalized) surface normals of each surface voxels
+    %       VS_surf_areas (3D cell) [vx^2]: Vector of surface areas of each surface voxel 
+    %       inds (Nx1 double):              Vector of linear indices of each surface voxel in the voxel space
+    %
     size_VS = size(VS_opaq);
     VS_surf_norms = cell(size_VS);
     VS_surf_areas = zeros(size_VS);

@@ -1,15 +1,12 @@
-classdef InternalFlux
+%   AUTHOR: Charles Wetaski
+%   LAST CHECKED: 2024-06-07
+
+classdef InternalFlux < Flux
     %INTERNALFLUX Defines an internal flux within a voxel space
-    %   Defines a position and direction distribution for a source flux within a voxel space as well as the overall
-    %   power (in W) associated with the flux
-    
-    properties
-        voxel_space;      % VoxelSpace object which the external flux is applied to
-        power;            % (scalar) [W]: The total power of the external flux.  
-        ray_gen_function; % (Function of scalar N_rays): Generates N_rays according to some probability distribution
-                          %                              The generated rays have components [x,y,z, dx,dy,dz]
-        end
-    
+    %   Generates rays according to a position and direction distribution of a source flux within a voxel space as 
+    %   well as the overallpower (in W) associated with the flux
+    %
+    % Properties inherited from Flux.m
     methods
         function [obj,voxel_space] = InternalFlux(voxel_space,power,ray_gen_function)
             %EXTERNALFLUX Constructs an ExternalFlux Object and assigns it to the VoxelSpace

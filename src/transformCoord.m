@@ -1,12 +1,14 @@
-%Transforms a direction vector from an hemispherical coordinate system
-%built in a surface (with n normal to surface) to the right-hand GLOBAL
-%coordinate system. 
-% Written by Sebastian Sas Brunser with the help and input from Lukas
-% Schlagenhauf 
-% 20.05.2021
-
+% AUTHOR: Sebastian Sas Brunser (with the help and input from Lukas Schlagenhauf) 20.05.2021
+% LAST CHECKED: 2024-06-07 (Charles Wetaski)
 
 function [U_global]=transformCoord(U_local,n)
+% TRANSFORMCOORD Transforms a direction vector from an hemispherical coordinate system built in a surface (with 
+%   n normal to surface) to the right-hand GLOBAL coordinate system. 
+% Inputs:
+%   U_local (1x3 double):   Direction vector in local coordinates
+%   n       (1x3 double):   Local surface normal vector (in global coordinates)
+% Outputs:
+%   U_global (1x3 double):  U_local transformed to global coordinates
 
     %if zenith of hemisphere match the GLOBAL Z (^k), then no need to do anything:
     if (abs(n(1))<1e-5 && abs(n(2))<1e-5)

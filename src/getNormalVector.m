@@ -1,20 +1,22 @@
-% Function returns a normal vector (with normalized length) at the point P.
-% The normal vector in the discrete space is calculated
-% usin the algorith described in [1].
-%
-%
-%   1: Normal Computation for Discrete Surfaces in 3D Space. Grit Thürmer and
-%      Charles A Wüthrich  (Eurographics 1997, volume 16, number 3)
-%   2: Update to use repeating boundary condition.  (Charles)
+%   AUTHOR: Sebastian Sas-Brunser, Charles Wetaski
+%   LAST CHECKED: 2024-06-07 (Charles Wetaski)
 
-
-
-
-function n=getNormalVector(P,voxel_space,ns)
+function n = getNormalVector(P,VS_logical,ns)
+    % GETNORMALVECTOR Returns a normal vector of the specified opaque surface voxel
+    % The normal vector in the discrete space is calculated using the algorithm described in [1].
+    % [1]: Normal Computation for Discrete Surfaces in 3D Space. Grit Thürmer and Charles A Wüthrich  
+    %             (Eurographics 1997, volume 16, number 3)
+    %
+    % Inputs:
+    %   P (1x3 double (int)):       Voxel coordinate of the surface voxel
+    %   VS_opaq (3D logical):       Voxel space of opaque voxels
+    %   ns (double (int)):          Neighbourhood size (see [1])
+    % Outputs:
+    %   n (1x3 double):             Surface normal vector (normalized)
 
     w=1; % weighting factor (=1 , no weighting)
     
-    [sz_x,sz_y,sz_z] = size(voxel_space);
+    [sz_x,sz_y,sz_z] = size(VS_logical);
     size_VS = [sz_x,sz_y,sz_z];
 
     if length(P) == 1 %% assume encoded as linear indices
@@ -24,7 +26,7 @@ function n=getNormalVector(P,voxel_space,ns)
     
     if all(P-ns>=1) && all(P+ns<=size_VS) % voxel has enough neighboors
     
-        N_p=voxel_space(P(1)-ns:P(1)+ns,P(2)-ns:P(2)+ns,P(3)-ns:P(3)+ns); %neighborhood
+        N_p=VS_logical(P(1)-ns:P(1)+ns,P(2)-ns:P(2)+ns,P(3)-ns:P(3)+ns); %neighborhood
 
     else
         adjacent_boundaries = zeros(2,3); % (1x3 double): row 1 is lower bound, row 2 is upper bound
@@ -64,7 +66,7 @@ function n=getNormalVector(P,voxel_space,ns)
             b3=size_VS(3);
         end
         
-        N_p=voxel_space(a1:b1,a2:b2,a3:b3); % neighborhood excluding boundaries
+        N_p=VS_logical(a1:b1,a2:b2,a3:b3); % neighborhood excluding boundaries
         % Pad array based on boundaries, replicating
         pad_dir = ["pre","post"];
         for ii = 1:2

@@ -94,7 +94,7 @@ end
 N_par_workers = 4;
 parpool('Threads',N_par_workers); % Threads profile is generally preferred
 
-[VS_Delta_Q,~,~] = radiativeHeatFlowsMC(N_rays,VS_T,voxel_space);
+[VS_Delta_Q,~,~] = radiativeHeatFlowsMC(N_rays,VS_T,voxel_space); % Not really sure how to test the accuracy of the line source distribution except by doing some involved view factor calculations which I really don't feel like doing!!
 
 total_flux_abs = sum(VS_Delta_Q(:))
 
