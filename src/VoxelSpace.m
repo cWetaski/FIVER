@@ -21,13 +21,19 @@ classdef VoxelSpace < matlab.mixin.Copyable
         size                    % (1x3 double (int)):           Size in each dimension (X,Y,Z) of voxel space
         voxel_scale             % (scalar double) [m/vx]:       Physical scale of voxel space.
         fluxes                  % (1D Flux):                    1D vector of Flux objects
-        surface_normal_inds
-        surface_normals_lin
-        size_reduced
-    end
+        wavelength_band         % (1x2 or empty [um]):          If empty, assume properties are for entire spectrum (a gray voxel space)
+        ns_normals;             % (scalar double (int)):        Neighborhood size for normal calculation
+        end
     methods
         % Constructor
         function obj = VoxelSpace()
+        end
+
+        function addFlux(obj,flux)
+            if ~isa(flux,"Flux")
+                error("Must be flux object")
+            end
+            obj.fluxes{end+1} = flux;
         end
     end
 end

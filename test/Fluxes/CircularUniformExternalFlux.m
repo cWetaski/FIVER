@@ -29,9 +29,11 @@ voxel_space.reflective_BCs = zeros(2,3);
 
 VS_T = zeros(size_VS);
 
-external_flux = ExternalFlux(voxel_space,1000,ray_fun,'bottom');
 
-[rays_pos, rays_dir] = external_flux.GenerateRays(N_rays);
+voxel_space.addFlux(ExternalFlux(1000,ray_fun,'bottom',size_VS));
+
+
+[rays_pos, rays_dir] = voxel_space.fluxes{end}.GenerateRays(N_rays);
 scatter(rays_pos(:,1),rays_pos(:,3),'Marker','.')
 
 %% Start parallel pool

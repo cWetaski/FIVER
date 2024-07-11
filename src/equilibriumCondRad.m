@@ -85,15 +85,11 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr] = equilibriumCondRad(N_rays,VS_T,VS
     size_VS = voxel_spaces{1}.size; 
     vx_scale = voxel_spaces{1}.voxel_scale;
     VS_alpha = voxel_spaces{1}.thermal_conductivity;
-    max_PM_kappa = 0;
-    external_flux_tot = 0;
-    for i = 1:N_bands
-        VS_PM_kappa = voxel_spaces{i}.PM_absorption_coeffs;
-        max_PM_kappa = max([max_PM_kappa;VS_PM_kappa(:)]);
-        for f = voxel_spaces{i}.external_fluxes
-            external_flux_tot = external_flux_tot + f.power/(max(size_VS)*vx_scale).^2; % W/m2
-        end
-    end
+    % max_PM_kappa = 0;
+    % for i = 1:N_bands
+    %     VS_PM_kappa = voxel_spaces{i}.PM_absorption_coeffs;
+    %     max_PM_kappa = max([max_PM_kappa;VS_PM_kappa(:)]);
+    % end
     % if max_PM_kappa > 0
     %     N_param = max_PM_kappa/vx_scale*max(VS_alpha(:))/(4*sigma*max(VS_T(:))^3); % Estimate conduction-to-radiation factor (see Modest pp 725)
     %     dt = t_step_scaling*1./max_PM_kappa^2*N_param*vx_scale^2/(2*max(VS_alpha(:))); % [s]: Time step as N_param gets smaller, time step also gets smaller since more risk of diverging when radiation dominates, time step decreases with increasing PM_kappa since solution is exploding otherwise

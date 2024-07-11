@@ -10,7 +10,6 @@ format shortG
 vx_scale = 0.02; % [m/vx]: Scale of voxels
 N_rays = 10^7; % Set number of rays
 N_tests = 1; % Number of times to trace N_rays
-visualize = true; % Whether to visualize voxel space at the end
 ns = 2; % neighbourhood size for surf normal determination
 
 %% Params - from Modest (solution will be incorrect if these are modified)
@@ -128,13 +127,3 @@ Q2_error = (mean_Q_raytrace(2) - Q2_analytic)/Q2_analytic*100; % [%]:
 fprintf('Q1 from raytracing: %0.0f W \n', mean_Q_raytrace(1))
 fprintf('Q1 analytic: %0.0f W\n', Q1_analytic);
 fprintf('Q1 error: %0.4f %% \n',Q1_error);
-
-if visualize
-    VOX_opts.IMG = repmat(1-VS_opaq_eps,[1 1 1 3]);
-    VOX_opts.ALPHA = double(VS_opaq);
-    VOX_opts.patch_props.edgecolor = 'r';
-    VOX_opts.CornerXYZ = [0.5,0.5,0.5];
-    VOX_opts.bounding_box = true;
-    VOX_opts.texturemap = false;
-    f = VOXview(VOX_opts);
-end

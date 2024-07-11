@@ -74,7 +74,7 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr, total_rays] = equilibriumRad(N_rays
         voxel_space = {voxel_space}; % allows this to work with a single voxel space as an input for gray radiation
     end
 
-    N_bands = length(spectral_band_edges)-1; 
+    N_bands = max(length(spectral_band_edges)-1,1); 
     sigma = 5.670374419*10^(-8); % [W/(m^2-K^4)]: Stefan-Boltzmann constant
     vx_scale = voxel_space{1}.voxel_scale;
 
@@ -137,7 +137,7 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr, total_rays] = equilibriumRad(N_rays
             VS_T_new =  VS_T_prev.*(VS_Q_emit_new./VS_Q_emit_prev).^(1/4); % estimate a linear proportionality to T^4 (i.e., AT^4 = Q -> T2/T1 = (Q2/Q1)^(1/4))
             nan_vals = find(isnan(VS_T_new)); % Occurs when VS_Q_emit_prev == 0 which can happen when number of rays is small
             for i = 1:length(nan_vals) % Properly invert temperature at the specific voxel (this is expensive, so we don't want to do it a lot)
-                VS_T_new(nan_vals(i)) = fzero(@(T) TotalEmissivePowerSingle(spectral_band_edges,voxel_space,T,nan_vals(i))-VS_Q_emit_new(nan_vals(i)),[0,max(VS_T_new(:))]);
+                VS_T_new(nan_vals(i)) = fzero(@(T) totalEmissivePowerSingle(spectral_band_edges,voxel_space,T,nan_vals(i))-VS_Q_emit_new(nan_vals(i)),[0,max(VS_T_new(:))]);
             end
         end
 

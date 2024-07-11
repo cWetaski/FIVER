@@ -47,24 +47,6 @@ pure_rad_scale = 1;
 N_Psi = 20;
 N_rays_Psi = 2*10^6;
 
-plot_name = 'ParallelPlatesSpectralCondNew';
-
-%% Get folders
-% Get current folder
-cur_folder = pwd;
-cur_folder = fileparts(cur_folder); % Just want the folder
-
-% Get plots folder and project root folder
-folders = regexp(cur_folder,'\','split');
-for i = length(folders):-1:1 % move backward thru folders until you find VoxelRayTracer folder
-    if folders(i) == "FIVER"
-        root_folder = strjoin(folders,'\');
-        full_file_path = fullfile(root_folder,'plots',file_name);
-    else
-        folders(i) = [];
-    end
-end
-
 %% Constants
 sigma = 5.670374419*10^(-8); % [W/m^2-K^4]; Stefan Boltzmann
 planck = 6.62607004*10^(-34);     % Planck's constant [J s]

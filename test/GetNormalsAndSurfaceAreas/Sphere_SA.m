@@ -9,7 +9,7 @@ end
 %% Params
 format shortG
 D = 10:100; % vx
-ns = 1:30;
+ns = 1:20;
 N_tests = length(D);
 N_ns = length(ns);
 plot_results = true;
@@ -107,7 +107,6 @@ ylabel('Surface Area Error (\%)','Interpreter','latex');
 set(gca,'TickLabelInterpreter','latex');
 ylim([floor(min(SA_error_ns)),max(0,ceil(max(SA_error_ns)))]);
 
-disp(SA_err2)
 fprintf("Hollow Sphere Surface Area \n");
 fprintf("Analytic: %0.3f \n",SA(end,1));
 fprintf("Voxelized Estimation: %0.3f \n", SA_est(end,1));

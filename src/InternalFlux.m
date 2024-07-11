@@ -8,12 +8,10 @@ classdef InternalFlux < Flux
     %
     % Properties inherited from Flux.m
     methods
-        function [obj,voxel_space] = InternalFlux(voxel_space,power,ray_gen_function)
+        function obj = InternalFlux(power,ray_gen_function)
             %EXTERNALFLUX Constructs an ExternalFlux Object and assigns it to the VoxelSpace
-            obj.voxel_space = voxel_space;
             obj.power = power;
             obj.ray_gen_function = ray_gen_function;
-            voxel_space.fluxes = [voxel_space.fluxes,obj];
         end
         
         function [rays_pos,rays_dir] = GenerateRays(obj,N_rays)

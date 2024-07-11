@@ -45,24 +45,8 @@ sigma = 5.670374419*10^(-8); % [W/m^2-K];
 size_VS = [X+2,Y,Z]; %  +2 because each plate is 1 vx thick, so opposing surface distance is X
 PM_kappa = tau_L/X; % [1/vx]: Linear absorption coefficient
 
-%% Get folders
-% Get current folder
-cur_folder = matlab.desktop.editor.getActiveFilename;
-cur_folder = fileparts(cur_folder); % Just want the folder
-
-% Get plots folder and project root folder
-folders = regexp(cur_folder,'\','split');
-for i = length(folders):-1:1 % move backward thru folders until you find VoxelRayTracer folder
-    if folders(i) == "VoxelRayTracer"
-        root_folder = strjoin(folders,'\');
-        full_file_path = fullfile(root_folder,'plots',file_name);
-    else
-        folders(i) = [];
-    end
-end
-
 %% Load exact solution
-exact_table = load(strcat(cur_folder,"\ParallelPlatesPM_Exact\ParallelPlatesPM_Exact.mat")).results_table; 
+exact_table = load("ParallelPlatesPM_Exact.mat").results_table; 
 x_vals_nd_exact = exact_table{2:2:(end-1),1}; % Remove every 2nd row to make it more manageable performance-wise;
                                               % Remove 1st and last element because those values are just 1 and 0;
 nondim_power_exact = cell(N_tau_L,1);
@@ -123,9 +107,6 @@ end
 dX = 1/X; % Non-dimensional distance between each voxel center
 nondim_x = linspace(dX/2,1-dX/2,X);    % nondimensional x values have to be slightly adjusted since in voxel space since the plate has a finite thickness
                                         % but in the exact solution X(1) corresponds to the surface of the plate.
-
-
-fprintf("Solving %d of %d    time = %0.3f \n",i,N_tau_L,toc(outer_tic))
 
 if tau_L(i) == 0.01
     N_rays_multi(end) = N_temp*10; % Extra variance reduction for optically thin case

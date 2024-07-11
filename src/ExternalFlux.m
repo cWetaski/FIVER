@@ -11,16 +11,16 @@ classdef ExternalFlux < Flux
     properties
         boundary; % (scalar String) ["left","right", "bottom","top","back","front"]: the boundary which the flux is applied to.
                   %         (left/right ==  -/+ x-axis == dim 1, bottom/top == -/+ y-axis == dim 2, back/front == -/+ z-axis == dim 3)
-        end
+        size_VS;     % (1x3 double) size of the voxel space
+    end
     
     methods
-        function [obj,voxel_space] = ExternalFlux(voxel_space,power,ray_gen_function,boundary)
+        function obj = ExternalFlux(power,ray_gen_function,boundary,size_VS)
             %EXTERNALFLUX Constructs an ExternalFlux Object and assigns it to the VoxelSpace
-            obj.voxel_space = voxel_space;
             obj.power = power;
             obj.ray_gen_function = ray_gen_function;
             obj.boundary = boundary;
-            voxel_space.fluxes = [voxel_space.fluxes,obj];
+            obj.size_VS = size_VS;
         end
         
         function [rays_pos,rays_dir] = GenerateRays(obj,N_rays)
@@ -41,8 +41,7 @@ classdef ExternalFlux < Flux
 
             %% Rotate the generated points and vectors around the center point of the domain so that they are in the appropriate plane
             % https://math.stackexchange.com/questions/2093314/rotation-matrix-of-rotation-around-a-point-other-than-the-origin
-            size_VS = obj.voxel_space.size;
-            center_point = size_VS/2; % Minimum of domain is always 0 in all 3 axes
+            center_point = obj.size_VS/2; % Minimum of domain is always 0 in all 3 axes
             switch obj.boundary % Define rotation matrix based on boundary that flux is entering through
                 case 'left' % Rotate so that points lie in y-z plane, positive z-component of direction becomes positive x-component
                             % i.e. counterclockwise rotation of 90 degrees about the y-axis

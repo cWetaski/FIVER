@@ -65,7 +65,6 @@ function [VS_dQ, VS_Q_emit_no_self,VS_Q_self_absorb] = radiativeHeatFlowsMC(N_ra
     N_vx_PM_bands = zeros(N_bands,1);
     Q_flux_band = zeros(N_bands,1);
 
-
     %% Get energy in each wavelength band
     for n = 1:N_bands
         % Unpack voxel space for band. Note that this does not pollute memory since nothing is modified. 
@@ -75,7 +74,7 @@ function [VS_dQ, VS_Q_emit_no_self,VS_Q_self_absorb] = radiativeHeatFlowsMC(N_ra
         VS_PM_kappa = voxel_spaces{n}.PM_absorption_coeffs;
         VS_nn = voxel_spaces{n}.refractive_indexes;
         fluxes = voxel_spaces{n}.fluxes;
- 
+
         if isempty(spectral_band_edges) % No need to compute spectral bands, just use n^2*sigma*T^4
             % Do not use logical indexing since in my tests it was slower to logically index 3-4 large matrices than
             % just multiplying them all as is.
@@ -109,8 +108,8 @@ function [VS_dQ, VS_Q_emit_no_self,VS_Q_self_absorb] = radiativeHeatFlowsMC(N_ra
 
         VS_Q_emit = VS_Q_emit + VS_Q_emit_bands{n};% Get total emissive power from each voxel
         
-        for flux = fluxes
-            Q_flux_band(n) = Q_flux_band(n)+flux.power; % Emissive power in band from flux(es)
+        for m = 1:length(fluxes)
+            Q_flux_band(n) = Q_flux_band(n)+fluxes{m}.power; % Emissive power in band from flux(es)
         end
     end
 
@@ -120,6 +119,12 @@ function [VS_dQ, VS_Q_emit_no_self,VS_Q_self_absorb] = radiativeHeatFlowsMC(N_ra
     Q_emit_tot_band = Q_emit_vx_tot_bands+Q_flux_band;
     Q_emit_tot = sum(Q_emit_tot_band); % (scalar double) [W]: Total emissive power across all bands
     % Get power power ray
+    if Q_emit_tot == 0
+        VS_dQ = zeros(size_VS);
+        VS_Q_emit_no_self = zeros(size_VS);
+        VS_Q_self_absorb = zeros(size_VS);
+        return
+    end
     power_per_ray = Q_emit_tot/N_rays; % [W/ray]
 
     % Determine number of emissions from each wavelength band
@@ -130,16 +135,12 @@ function [VS_dQ, VS_Q_emit_no_self,VS_Q_self_absorb] = radiativeHeatFlowsMC(N_ra
     N_rays_band = floor(N_rays*(Q_emit_tot_band)/Q_emit_tot);
     N_rays_remaining = N_rays-sum(N_rays_band);
     if N_rays_remaining > 0
-        remaining_Q_band = Q_emit_tot-N_rays_band*power_per_ray; % Get remaining emissive power
+        remaining_Q_band = Q_emit_tot_band-N_rays_band*power_per_ray; % Get remaining emissive power
         if any(remaining_Q_band(:)<0)
             remaining_Q_band(remaining_Q_band<0) = 0;
         end
         CDF_emit_band_rem = [0;cumsum(remaining_Q_band/(sum(remaining_Q_band)))]; % CDF of remaining emissions from voxels in band
-        try 
-            N_rays_band = N_rays_band + histcounts(rand(N_rays_remaining,1),CDF_emit_band_rem)';
-        catch e
-            debug = 0;
-        end
+        N_rays_band = N_rays_band + histcounts(rand(N_rays_remaining,1),CDF_emit_band_rem)';
     end
     
     N_rays_vx_band = round(N_rays_band.*Q_emit_vx_tot_bands./(Q_emit_tot_band)); % Not probabilistic, number of rays from voxels in each band
@@ -184,11 +185,7 @@ function [VS_dQ, VS_Q_emit_no_self,VS_Q_self_absorb] = radiativeHeatFlowsMC(N_ra
                 CDF_emit_vx = [0;cumsum(remaining_Q_emit/(sum(remaining_Q_emit)))]; % CDF of remaining emissions from voxels in band
                 CDF_emit_vx = CDF_emit_vx/CDF_emit_vx(end);
                 rand_vals = rand(N_rays_remaining_band,1);
-                try
                 emission_counts_band = emission_counts_band + histcounts(rand_vals,CDF_emit_vx)'; % Assign remaining emissions probablistically
-                catch e
-                    debug = 0;
-                end
             end
             % Filter 0 emissions voxels
             N_vx_surf_band = nnz(emission_counts_band(1:N_vx_surf_bands(n))); % nnz -> count nonzero elements
@@ -205,7 +202,7 @@ function [VS_dQ, VS_Q_emit_no_self,VS_Q_self_absorb] = radiativeHeatFlowsMC(N_ra
             
             
             rays_pos = cell(N_vx_band,1);
-            rays_dir = cell(N_vx_band,1);        
+            rays_dir = cell(N_vx_band,1);  
             for i = 1:N_vx_band % I used to parfor this but for some reason it randomly (like 1 in 3000 times) throws an feval error. It also doesn't save much time anyway and is in fact slower in some cases.
                 cur_N_rays = emission_counts_band(i);
                 cur_vx = [X(i),Y(i),Z(i)];
@@ -228,19 +225,28 @@ function [VS_dQ, VS_Q_emit_no_self,VS_Q_self_absorb] = radiativeHeatFlowsMC(N_ra
             rays_pos = [];
             rays_dir = [];
         end
-        if N_rays_flux_band > 0
+        absorption_flux_rays = []; % If flux ray is generated within an opaque voxel, it should be instantly absorbed without ray tracing
+        if N_rays_flux_band(n) > 0
             N_flux = length(fluxes);
-            N_rays_flux = zeros(N_flux,1);
+            N_rays_flux = zeros(N_flux,1); 
+            rays_flux_pos = [];
+            rays_flux_dir = [];
             for ii = 1:N_flux
                 if ii < N_flux
-                    N_rays_flux(ii) = round(N_rays_flux_band(n)*fluxes(ii)/Q_flux_band(n));
+                    N_rays_flux(ii) = round(N_rays_flux_band(n)*fluxes{ii}.power/Q_flux_band(n));
                 else
                     N_rays_flux(ii) = N_rays_flux_band(n)-sum(N_rays_flux);
                 end
-                [rays_pos_flux,rays_dir_flux] = fluxes(ii).GenerateRays(N_rays_flux(ii));
+                [rays_flux_pos_cur,rays_flux_dir_cur] = fluxes{ii}.GenerateRays(N_rays_flux(ii));
+                inds_pos_flux = (min(floor(rays_flux_pos_cur)+1,size_VS));
+                rays_pos_lin = inds_pos_flux(:,1) + (inds_pos_flux(:,2)-1)*size_VS(1) + (inds_pos_flux(:,3)-1)*size_VS(1)*size_VS(2);
+                absorbed_rays_rows = VS_opaq(rays_pos_lin); % True for rays which are generated within an opaque voxel
+                absorption_flux_rays = [absorption_flux_rays;inds_pos_flux(absorbed_rays_rows,:)]; %#ok<AGROW>
+                rays_flux_pos = [rays_flux_pos;rays_flux_pos_cur(~absorbed_rays_rows,:)]; %#ok<AGROW> % Rather than storing as cell and using cell2mat, we just grow it since we expect the number of fluxes to usually be small
+                rays_flux_dir = [rays_flux_dir;rays_flux_dir_cur(~absorbed_rays_rows,:)]; %#ok<AGROW>
             end
-            rays_pos = [rays_pos;rays_pos_flux]; %#ok<AGROW>
-            rays_dir = [rays_dir;rays_dir_flux]; %#ok<AGROW>
+            rays_pos = [rays_pos;rays_flux_pos]; %#ok<AGROW>
+            rays_dir = [rays_dir;rays_flux_dir]; %#ok<AGROW>
         end
         %if any(size_VS==1) % This makes traversal faster should we have a 2D or 1D domain since we don't have to constantly bounce off the boundary
         %    rays_dir(:,size_VS==1) = 0;
@@ -249,28 +255,34 @@ function [VS_dQ, VS_Q_emit_no_self,VS_Q_self_absorb] = radiativeHeatFlowsMC(N_ra
 
         ray_generation_time(n) = toc;
         tic
-        [absorption_pos_band,events] = traverseRays(rays_pos,rays_dir,VS_opaq,VS_opaq_eps,VS_surf_norms,VS_PM_kappa,VS_nn,reflective_BCs,size_VS);
+        [absorption_pos_cur,events] = traverseRays(rays_pos,rays_dir,VS_opaq,VS_opaq_eps,VS_surf_norms,VS_PM_kappa,VS_nn,reflective_BCs,size_VS);
         ray_tracing_time(n) = toc;
-        % inds = find(events~=4);
-        % if ~isempty(inds)
-        %     [test_pos,test_event] = traverseRays(rays_pos(inds(1),:),rays_dir(inds(1),:),VS_opaq,VS_opaq_eps,VS_surf_norms,VS_PM_kappa,VS_nn,reflective_BCs,size_VS);
-        % end
-        % Save absorptions
-        self_absorption_pos{n} = absorption_pos_band(events==4,:);
-        absorption_pos{n} = absorption_pos_band((events==2) | (events ==3),:);
+        try
+        self_absorption_pos{n} = absorption_pos_cur(events(1:N_rays_vx_band(n))==4,:); % Self absorptions only considered if the ray is emitted from a voxel, not if emitted from an Flux object
+        catch e
+        debug = 0
+        end
+        absorption_pos{n} = [absorption_pos_cur((events==2) | (events ==3),:);absorption_pos_cur((N_rays_vx_band(n)+1:end)==4,:);absorption_flux_rays];
         
     end % Iterating over spectral bands
     absorption_pos = cell2mat(absorption_pos);
-    absorption_counts = histcounts(absorption_pos(:,1) + ...
+    if isempty(absorption_pos>0)
+        absorption_counts = zeros(N_vx_tot,1);
+    else
+        absorption_counts = histcounts(absorption_pos(:,1) + ...
                                    (absorption_pos(:,2) - 1)*size_VS(1) + ...
                                    (absorption_pos(:,3) - 1)*size_VS(1)*size_VS(2), ... # This is faster version of sub2ind
                                     1:(N_vx_tot+1))';
+    end
     self_absorption_pos = cell2mat(self_absorption_pos);
-    self_absorption_counts = histcounts(self_absorption_pos(:,1) + ...
+    if isempty(self_absorption_pos)
+        self_absorption_counts = zeros(N_vx_tot,1);
+    else
+        self_absorption_counts = histcounts(self_absorption_pos(:,1) + ...
                                    (self_absorption_pos(:,2) - 1)*size_VS(1) + ...
                                    (self_absorption_pos(:,3) - 1)*size_VS(1)*size_VS(2), ... # This is faster version of sub2ind
                                     1:(N_vx_tot+1))';
-    
+    end
     emission_counts = emission_counts-self_absorption_counts;
     %% Calculate Delta_Q
     % Net number of absorbed rays for each voxel * power per ray = Power out of each voxel

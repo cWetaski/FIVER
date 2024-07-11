@@ -42,9 +42,8 @@ ray_dir_generator = @(N_rays) ray_dir_fun(phi_generator(N_rays),thetas_generator
 ray_fun = @(N_rays) [ray_pos_generator(N_rays),ray_dir_generator(N_rays)];
 
 flux_power = 1000; % W
-internal_flux = InternalFlux(voxel_space,flux_power,ray_fun);
+voxel_space.addFlux(InternalFlux(flux_power,ray_fun));
 
-[rays] = internal_flux.GenerateRays(N_rays);
 
 %% Start parallel pool
 if ~isempty(gcp('nocreate')) % Delete existing parallel pool, if it's already running

@@ -38,25 +38,8 @@ N_rays = [1*10^5,5*10^5];%2*10^6];
 
 file_name = 'ParallelPlatesCondPM';
 
-%% Get folders
-% Get current folder
-cur_folder = pwd;
-cur_folder = fileparts(cur_folder); % Just want the folder
-
-% Get plots folder and project root folder
-folders = regexp(cur_folder,'\','split');
-for i = length(folders):-1:1 % move backward thru folders until you find VoxelRayTracer folder
-    if folders(i) == "FIVER"
-        root_folder = strjoin(folders,'\');
-        full_file_path = fullfile(root_folder,'plots',file_name);
-    else
-        folders(i) = [];
-    end
-end
-
-
 %% Load Exact Solution
-results_table = load(strcat(cur_folder,"\ParallelPlatesCondPM_Exact\ParallelPlatesCondPM_Exact.mat")).results_table;
+results_table = load("ParallelPlatesCondPM_Exact.mat").results_table;
 x_exact = results_table{:,1};
 N_param_strings = ["10","1","0.1","0.01","0.001"];
 N_params_exact = double(N_param_strings);

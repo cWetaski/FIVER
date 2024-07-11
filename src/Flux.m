@@ -9,7 +9,6 @@ classdef (Abstract) Flux
     %       2) An associated power (in W)
     %
     properties
-        voxel_space;      % VoxelSpace object which the external flux is applied to
         power;            % (scalar) [W]: The total power of the external flux.  
         ray_gen_function; % (Function of scalar N_rays): Generates N_rays according to some probability distribution
                           %                              The generated rays have components [x,y,z, dx,dy,dz]

@@ -12,7 +12,7 @@ X = 100;
 Y = 2; % Y and Z boundaries will be specularly reflecting
 Z = 2;
 
-N_rays = [5*10^4,1*10^6,5*10^6]; % Set number of rays (can be an array of rays)
+N_rays = [5*10^4,1*10^6]%,5*10^6]; % Set number of rays (can be an array of rays)
 N_par_workers = 6;
 
 max_itr = 200; % Maximum number of iterations we allow
@@ -47,24 +47,8 @@ PM_kappa = tau_L/X; % [1/vx]: Linear absorption coefficient
 tau_L_strings = string(tau_L); % Used for plotting and retrieving exact solution
 N_tau_L = length(tau_L);
 
-%% Get folders
-% Get current folder
-cur_folder = pwd;
-cur_folder = fileparts(cur_folder); % Just want the folder
-
-% Get plots folder and project root folder
-folders = regexp(cur_folder,'\','split');
-for i = length(folders):-1:1 % move backward thru folders until you find VoxelRayTracer folder
-    if folders(i) == "FIVER"
-        root_folder = strjoin(folders,'\');
-        full_file_path = fullfile(root_folder,'plots',file_name);
-    else
-        folders(i) = [];
-    end
-end
-
 %% Load exact solution
-exact_table = load(strcat(cur_folder,"\ParallelPlatesPM_Exact\ParallelPlatesPM_Exact.mat")).results_table; 
+exact_table = load("ParallelPlatesPM_Exact.mat").results_table; 
 x_vals_nd_exact = exact_table{2:2:(end-1),1}; % Remove every 2nd row to make it more manageable performance-wise;
                                               % Remove 1st and last element because those values are just 1 and 0;
 nondim_power_exact = cell(N_tau_L,1);
@@ -154,7 +138,7 @@ f.Position = [f.Position(1),f.Position(2),550,450];
 hold on;
 
 % load color_scheme
-color_scheme = load(fullfile(root_folder,'src','data','ColorSchemes','PREC.mat')).color_scheme;
+color_scheme = load('PREC.mat').color_scheme;
 line_width = 1;
 
 tau_L_labels = tau_L_strings;
