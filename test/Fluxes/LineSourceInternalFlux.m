@@ -11,8 +11,9 @@ voxel_space = VoxelSpace();
 voxel_space.size = size_VS;
 VS_opaq = false(size_VS-2);
 VS_opaq = padarray(VS_opaq,[1,1,1],true,'both');
+Vxyz = [1,1,1];
 VS_eps = double(VS_opaq);
-[VS_surf_norms, VS_surf_areas] = getNormalsAndSurfaceAreas(VS_opaq,1);
+[VS_surf_norms, VS_surf_areas] = getNormalsAndSurfaceAreas(VS_opaq,1,Vxyz);
 VS_nn = ones(size_VS);
 voxel_space.opaque_voxels = VS_opaq;
 voxel_space.opaque_emissivities = VS_eps;
@@ -22,6 +23,7 @@ voxel_space.voxel_scale = 1;
 voxel_space.PM_absorption_coeffs = zeros(size_VS);
 voxel_space.refractive_indexes = VS_nn;
 voxel_space.reflective_BCs = zeros(2,3);
+voxel_space.Vxyz = Vxyz;
 
 VS_T = zeros(size_VS);
 

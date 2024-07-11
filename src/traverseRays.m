@@ -1,7 +1,7 @@
 %   AUTHOR: Charles Wetaski
 %   LAST CHECKED: 2024-06-07
 
-function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start,VS_opaq,VS_opaq_eps,VS_surf_norms,VS_PM_kappa,VS_nn,reflective_BCs,size_VS)
+function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start,VS_opaq,VS_opaq_eps,VS_surf_norms,VS_PM_kappa,VS_nn,reflective_BCs,Vxyz,size_VS)
     % TRAVERSERAYS - Traces a set of rays from starting position and direction through voxel space until absorption or
     %                 exiting the voxel space. 
     %                   
@@ -16,6 +16,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
     %   VS_nn   (3D double (>= 1)) [1/vx]:              Stores refractive index at each location
     %   reflective_BCs (2x3 logical):                   Boundary conds: Rows are lower/upper bound, cols are XYZ. A
     %                                                       reflective boundary reflects the ray specularly.
+    %   Vxyz                                            Relative size of voxels in each dimension
     %   size_VS (1x3 double (int, sz >= 1)) [vx]:       Size of voxel space in each dimension, although this can easily
     %                                                       be determined in the function, it is ~5% faster to pass it.
     % OUTPUTS:
@@ -111,7 +112,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
         
             % Get starting distance from starting voxel boundary;
             sgn = sign(ray_dir);
-            xs = sgn.*(rem(ray_pos,1)-0.5)+0.5; % get remainder from boundary of starting voxel (note this fails if sgn = 0, but that should never occur for a real simulation.
+            xs = (sgn.*(rem(ray_pos,1)-0.5)+0.5).*Vxyz; % get remainder from boundary of starting voxel (note this fails if sgn = 0, but that should never occur for a real simulation.
             % Using a trick trick so that if sgn = 1: xs = rem, but if s = -1: xs = 1 - rem, since the direction is switched
         
             % Determine driving axis
@@ -119,8 +120,8 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
             % Note this does not sort the axes; the secondary and ternary axes form a right handed coordinate system with the driving axis
             % This is faster than using MATLAB's built in sort or max functions (in my tests the built-in functions took 
             % roughly twice as long.
-            if abs_ray_dir(1) > abs_ray_dir(2) 
-                if abs_ray_dir(1) > abs_ray_dir(3) % x is driving axis
+            if abs_ray_dir(1)*Vxyz(2) > Vxyz(1)*abs_ray_dir(2)
+                if abs_ray_dir(1)*Vxyz(3)  > Vxyz(1)*abs_ray_dir(3) % x is driving axis
                     ia = 1;
                     ib = 2;
                     ic = 3;
@@ -129,7 +130,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
                     ib = 1;
                     ic = 2;
                 end
-            elseif abs_ray_dir(2) > abs_ray_dir(3)
+            elseif abs_ray_dir(2)*Vxyz(3) > abs_ray_dir(3)*Vxyz(2)
                 ia = 2;
                 ib = 3;
                 ic = 1;
@@ -141,21 +142,21 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
         
             % Get default distance (i.e., the distance the ray traverses per increment of the driving axis)
             ray_dir_scaled = abs_ray_dir/abs_ray_dir(ia); % Divide by magnitude of driving axis direction da
-            default_dist = norm(ray_dir_scaled);
+            default_dist = norm(ray_dir_scaled)*Vxyz(ia);
             
             % Get increments of secondary axis and ternary axis (per driving axis increment)
-            Db = ray_dir_scaled(ib); % (db/da) in paper this is Vx*dy/dx, but we have defined Vx = Vy = Vz = 1
-            Dc = ray_dir_scaled(ic); % (dc/da)
+            Db = ray_dir_scaled(ib)*Vxyz(ia); % (db/da) in paper this is Vx*dy/dx, NO MORE [but we have defined Vx = Vy = Vz = 1]
+            Dc = ray_dir_scaled(ic)*Vxyz(ia); % (dc/da)
         
-            pb = xs(ib) - 1 + (1-xs(ia))*Db; % this corresponds to p_xy' in Liu et al paper (for x driving axis)
-            pc = xs(ic) - 1 + (1-xs(ia))*Dc; % (p_xz')
+            pb = xs(ib) - Vxyz(ib) + (Vxyz(ia)-xs(ia))*Db; % this corresponds to p_xy' in Liu et al paper (for x driving axis)
+            pc = xs(ic) - Vxyz(ic) + (Vxyz(ia)-xs(ia))*Dc; % (p_xz')
         
             if first_pass_bool % Don't want to reset this if ray is diffusely reflected or refracted
                 XYZ = XYZ_0; % On the first pass, we compute this before entering the while-loop
                 % Generate optical distance that the ray can traverse before being absorbed
                 tau_ray = -log(rand); % Modest, Eq. 21.19
                 % Initialize optical depth accumulator
-                tau_acc = -xs(ia)*default_dist*VS_PM_kappa(XYZ(1),XYZ(2),XYZ(3)); % subtraction to account for starting partway thru the voxel
+                tau_acc = -xs(ia)/Vxyz(ia)*default_dist*VS_PM_kappa(XYZ(1),XYZ(2),XYZ(3)); % subtraction to account for starting partway thru the voxel
                 first_pass_bool = false; % We will not repeat this for a reflected/refracted ray+
             else % Not first pass, have to determine XYZ again.
                 % XYZ stores the current voxel coordinate position (i.e., XYZ(1) = X coordinate, XYZ(2) = Y coordinate, etc.)
@@ -190,7 +191,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
         
                             % Increment XYZ(ib)
                             XYZ(ib) = XYZ(ib) + sgn(ib);
-                            pb = pb - 1; % Reset pb
+                            pb = pb - Vxyz(ib); % Reset pb
         
                             % Check exit or collision
                             if XYZ(ib) > size_VS(ib) 
@@ -249,7 +250,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
         
                             % Increment XYZ(ic)
                             XYZ(ic) = XYZ(ic) + sgn(ic);
-                            pc = pc - 1; % Reset pc
+                            pc = pc - Vxyz(ic); % Reset pc
         
                             % Check exit or collision
                             if XYZ(ic) > size_VS(ic) 
@@ -380,7 +381,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
                             
                             % Increment XYZ(ib)
                             XYZ(ib) = XYZ(ib) + sgn(ib);  
-                            pb = pb - 1; % Reset pb
+                            pb = pb - Vxyz(ib); % Reset pb
                             
                             % Check exit or collision
                             if XYZ(ib) > size_VS(ib) 
@@ -530,7 +531,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
         
                         % Increment XYZ(ic)
                         XYZ(ic) = XYZ(ic) + sgn(ic);
-                        pc = pc - 1; % Reset ic
+                        pc = pc - Vxyz(ic); % Reset ic
         
                         % Check exit or collision
                         if XYZ(ic) > size_VS(ic) 
@@ -837,7 +838,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
                     end
                     if adjust_pos
                         
-                        dist_to_clear = 0.5 - (sgn.*(rem(ray_pos,1)-0.5)); % Get distance to next boundary in direction of ray travel (note this is the opposite of xs calculated in Premable pt 2)
+                        dist_to_clear = (0.5 - (sgn.*(rem(ray_pos,1)-0.5))).*Vxyz; % Get distance to next boundary in direction of ray travel (note this is the opposite of xs calculated in Premable pt 2)
                         time_to_clear = dist_to_clear./abs(ray_dir); % "time" because direction components are essentially velocities
                         i_rem = [1,2,3];
                         i_rem(last_inc) = [];
@@ -849,7 +850,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
                             end
                         end
                         ray_pos(last_inc) = ray_pos(last_inc) - 0.1*sgn(last_inc); % Move ray a little bit backward from boundary
-                        ray_pos(i_min) = ray_pos(i_min)+dist_to_clear(i_min)*0.999; % Move ray so that the next boundary it crosses will be i_min
+                        ray_pos(i_min) = ray_pos(i_min)+dist_to_clear(i_min)/Vxyz(i_min)*(1-1e-10); % Move ray so that the next boundary it crosses will be i_min
                     end                
                 end % end: interior collision bool
                 

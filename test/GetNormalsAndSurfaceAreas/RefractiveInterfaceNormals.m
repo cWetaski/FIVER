@@ -27,8 +27,9 @@ VS_opaq(end,:,:) = 1; % S4
 VS_nn = ones(size_VS);
 halfway_x = round(size_VS(1)/2);
 VS_nn(1:halfway_x,:,:) = 2;
+Vxyz = [1,1,1];
 
-[VS_surf_norms, VS_surf_areas] = getNormalsAndSurfaceAreas(VS_opaq,ns,VS_nn);
+[VS_surf_norms, VS_surf_areas] = getNormalsAndSurfaceAreas(VS_opaq,ns,Vxyz,VS_nn);
 VS_surf_norms_exact = cell(size_VS);
 VS_surf_norms_exact(halfway_x,:,:) = {[1 0 0]}; % Refractive interface
 VS_surf_norms_exact(halfway_x+1,:,:) = {[-1 0 0]}; % Refractive interface

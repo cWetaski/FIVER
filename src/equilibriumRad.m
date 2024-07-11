@@ -77,6 +77,7 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr, total_rays] = equilibriumRad(N_rays
     N_bands = max(length(spectral_band_edges)-1,1); 
     sigma = 5.670374419*10^(-8); % [W/(m^2-K^4)]: Stefan-Boltzmann constant
     vx_scale = voxel_space{1}.voxel_scale;
+    Vxyz = voxel_space{1}.Vxyz;
 
     if N_bands == 1
         % Used for time stepping in single band case
@@ -131,7 +132,7 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr, total_rays] = equilibriumRad(N_rays
         if N_bands == 1
             % Calculate new temperature field based on new emissions (different formula for surfaces vs PM voxels)
             VS_PM = logical(VS_PM_kappa); % Should make this part of VoxelSpace object, to be honest.
-            VS_T_new(VS_PM) = (VS_Q_emit_new(VS_PM)./(vx_scale.^2*4.*VS_nn(VS_PM).^2*sigma.*VS_PM_kappa(VS_PM))).^(1/4);
+            VS_T_new(VS_PM) = (VS_Q_emit_new(VS_PM)./(prod(Vxyz)*vx_scale.^2*4.*VS_nn(VS_PM).^2*sigma.*VS_PM_kappa(VS_PM))).^(1/4);
             VS_T_new(VS_surf_areas>0) = (VS_Q_emit_new(VS_surf_areas>0)./(vx_scale.^2.*VS_nn(VS_surf_areas>0).^2.*sigma.*VS_surf_areas(VS_surf_areas>0).*VS_opaq_eps(VS_surf_areas>0))).^(1/4);        
         else % Can't easily invert Q_emit = f(T^4) since f is nonlinear function depending on wavelength bands
             VS_T_new =  VS_T_prev.*(VS_Q_emit_new./VS_Q_emit_prev).^(1/4); % estimate a linear proportionality to T^4 (i.e., AT^4 = Q -> T2/T1 = (Q2/Q1)^(1/4))

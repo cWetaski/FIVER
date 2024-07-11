@@ -19,7 +19,8 @@ classdef VoxelSpace < matlab.mixin.Copyable
         reflective_BCs          % (2x3 logical):                Defines which boundaries of the voxel space are specularly reflective
                                 %                               Rows are lower/upper bound and columns are X,Y,Z axis
         size                    % (1x3 double (int)):           Size in each dimension (X,Y,Z) of voxel space
-        voxel_scale             % (scalar double) [m/vx]:       Physical scale of voxel space.
+        Vxyz;                   % (1x3 double):                 Relative size of voxels in each dimension
+        voxel_scale             % (scalar double) [m/vx]:       Physical scale of voxel space (corresponding to 1 unit of Vxyz)
         fluxes                  % (1D Flux):                    1D vector of Flux objects
         wavelength_band         % (1x2 or empty [um]):          If empty, assume properties are for entire spectrum (a gray voxel space)
         ns_normals;             % (scalar double (int)):        Neighborhood size for normal calculation

@@ -41,11 +41,13 @@ T2 = 400; % [K]: Temperature of plate 2 (arbitrary)
 theta_0 = 0.75;
 
 % Number of rays per iteration
-N_rays_set = [1*10^6,4*10^6];
+N_rays_set = [1*10^6];
 pure_rad_scale = 1;
 
-N_Psi = 20;
-N_rays_Psi = 2*10^6;
+N_Psi = 5;
+N_rays_Psi = 0.5*10^6;
+
+Vxyz = [1,1,1];
 
 %% Constants
 sigma = 5.670374419*10^(-8); % [W/m^2-K^4]; Stefan Boltzmann
@@ -77,7 +79,7 @@ for i = 1:N_cases
     cur_spectral_absorption_coeffs = flip(spectral_absorption_coeffs{i}); % flip order to correspond with lambda bands correctly
     PM_kappa = cur_spectral_absorption_coeffs*tau_L/X; % [1/vx]:
     
-    beta = tau_L/X;
+    beta = tau_L/X/Vxyz(1);
     beta_real = beta/vx_scale; % [1/m]:
     thermal_conductivity = N_param(i)*4*sigma*T2^3/beta_real; % [W/(m-K)]: By definition of N
 
@@ -101,7 +103,7 @@ for i = 1:N_cases
         VS_opaq = logical(VS_plate1 + VS_plate2); % Join the two plates into 1 opaque voxel space;
         VS_opaq_eps = double(VS_opaq); % Both plates are black bodies
         
-        [VS_surf_norms, VS_surf_areas, ~] = getNormalsAndSurfaceAreas(VS_opaq,1); % Get surface normals and areas
+        [VS_surf_norms, VS_surf_areas, ~] = getNormalsAndSurfaceAreas(VS_opaq,1,Vxyz); % Get surface normals and areas
         
         reflective_BCs = false(2,3); % Initialize reflective BCs
         reflective_BCs(:,2:3) = 1; % Y and Z boundaries are reflective 
@@ -123,6 +125,7 @@ for i = 1:N_cases
         voxel_space.thermal_conductivity = thermal_conductivity;
         voxel_space.size = size_VS;
         voxel_space.voxel_scale = vx_scale;
+        voxel_space.Vxyz = Vxyz;
         voxel_space.reflective_BCs = reflective_BCs;
         voxel_spaces{j} = voxel_space;
     end

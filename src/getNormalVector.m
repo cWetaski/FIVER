@@ -1,7 +1,7 @@
 %   AUTHOR: Sebastian Sas-Brunser, Charles Wetaski
 %   LAST CHECKED: 2024-06-07 (Charles Wetaski)
 
-function n = getNormalVector(P,VS_logical,ns)
+function n = getNormalVector(P,VS_logical,ns,Vxyz)
     % GETNORMALVECTOR Returns a normal vector of the specified opaque surface voxel
     % The normal vector in the discrete space is calculated using the algorithm described in [1].
     % [1]: Normal Computation for Discrete Surfaces in 3D Space. Grit Thürmer and Charles A Wüthrich  
@@ -11,6 +11,7 @@ function n = getNormalVector(P,VS_logical,ns)
     %   P (1x3 double (int)):       Voxel coordinate of the surface voxel
     %   VS_opaq (3D logical):       Voxel space of opaque voxels
     %   ns (double (int)):          Neighbourhood size (see [1])
+    %   Vxyz (1x3 double):          Relative size of voxel in each dimension.
     % Outputs:
     %   n (1x3 double):             Surface normal vector (normalized)
 
@@ -78,9 +79,9 @@ function n = getNormalVector(P,VS_logical,ns)
 
     [ii,jj,kk]=ind2sub(size(N_p),find(N_p~=0));
 
-    ii=ii-(ns+1);
-    jj=jj-(ns+1);
-    kk=kk-(ns+1); % converted -ns:ns indexes 
+    ii=(ii-(ns+1))*Vxyz(1);
+    jj=(jj-(ns+1))*Vxyz(2);
+    kk=(kk-(ns+1))*Vxyz(3); % converted -ns:ns indexes, scaled by Vxyz
 
     v=[ii jj kk];
 
@@ -93,7 +94,7 @@ function n = getNormalVector(P,VS_logical,ns)
     ss=sqrt(sum(v.^2,2)); % produces column with the sqrt(i^2+j^2+k^2)
 
 
-    n=[-sum(ii.*w./ss) -sum(jj.*w./ss) -sum(kk.*w./ss)]; %not normalized normal vector at P_hit
+    n=[-sum(ii.*w./ss) -sum(jj.*w./ss) -sum(kk.*w./ss)]; % not normalized normal vector at P_hit
     
     n(size_VS == 1) = 0; % if 2D voxel space
 

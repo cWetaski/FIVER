@@ -35,6 +35,7 @@ theta_0 = 0.75;
 
 % Number of rays per iteration
 N_rays = [1*10^5,5*10^5];%2*10^6]; 
+Vxyz = [1,1,1];
 
 file_name = 'ParallelPlatesCondPM';
 
@@ -58,7 +59,7 @@ eps1 = 1; % emissivity of plate 1; results from Modest are just for black plates
 eps2 = 1; % emissivity of plate 2;
 
 %% Derived Parameters
-vx_scale = L/X; % [m/vx]: Scale of voxels
+vx_scale = L/X/Vxyz(1); % [m/vx]: Scale of voxels
 size_VS = [X+2,Y,Z]; %  +2 because each plate is 1 vx thick
 PM_kappa = tau_L/X; % [1/vx]: 
 PM_kappa_real = PM_kappa/vx_scale; % [1/m]:
@@ -74,7 +75,7 @@ VS_plate2(end,:,:) = 1;
 VS_opaq = logical(VS_plate1 + VS_plate2); % Join the two plates into 1 opaque voxel space;
 VS_opaq_eps = double(VS_opaq); % Both plates are black bodies
 
-[VS_surf_norms, VS_surf_areas, ~] = getNormalsAndSurfaceAreas(VS_opaq,1); % Get surface normals and areas
+[VS_surf_norms, VS_surf_areas, ~] = getNormalsAndSurfaceAreas(VS_opaq,Vxyz,1); % Get surface normals and areas
 
 reflective_BCs = false(2,3); % Initialize reflective BCs
 reflective_BCs(:,2:3) = 1; % Y and Z boundaries are reflective 
@@ -98,6 +99,7 @@ voxel_space.PM_absorption_coeffs = VS_PM_kappa;
 voxel_space.refractive_indexes = VS_nn;
 voxel_space.size = size_VS;
 voxel_space.voxel_scale = vx_scale;
+voxel_space.Vxyz = Vxyz;
 voxel_space.reflective_BCs = reflective_BCs;
 
 %% Fixed temperatures for equilibrium solver

@@ -85,6 +85,8 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr] = equilibriumCondRad(N_rays,VS_T,VS
     size_VS = voxel_spaces{1}.size; 
     vx_scale = voxel_spaces{1}.voxel_scale;
     VS_alpha = voxel_spaces{1}.thermal_conductivity;
+    Vxyz = voxel_spaces{1}.Vxyz;
+    
     % max_PM_kappa = 0;
     % for i = 1:N_bands
     %     VS_PM_kappa = voxel_spaces{i}.PM_absorption_coeffs;
@@ -97,7 +99,8 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr] = equilibriumCondRad(N_rays,VS_T,VS
     %     dt = t_step_scaling*(2*max(VS_alpha(:))/vx_scale)/(4*sigma*max(VS_T(:)).^3)*vx_scale^2; % No participating media
     % end
     %% Define conduction problem;
-    thermal_mesh = createMesh3D(size_VS(1),size_VS(2),size_VS(3),size_VS(1)*vx_scale,size_VS(2)*vx_scale,size_VS(3)*vx_scale);
+    cell_sizes = Vxyz*vx_scale;
+    thermal_mesh = createMesh3D(size_VS(1),size_VS(2),size_VS(3),size_VS(1)*cell_sizes(1),size_VS(2)*cell_sizes(2),size_VS(3)*cell_sizes(2));
     BC = createBC(thermal_mesh); % all Neumann boundary condition structure is default
     
     alpha_cell = createCellVariable(thermal_mesh, VS_alpha); % assign the thermal diffusivity to the cells

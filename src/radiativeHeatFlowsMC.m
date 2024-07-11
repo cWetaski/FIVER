@@ -45,7 +45,8 @@ function [VS_dQ, VS_Q_emit_no_self,VS_Q_self_absorb] = radiativeHeatFlowsMC(N_ra
     if strcmp(class(voxel_spaces),"VoxelSpace") 
         voxel_spaces = {voxel_spaces}; % allows this to work with a single voxel space as an input for gray radiation
     end
-
+    
+    Vxyz = voxel_spaces{1}.Vxyz;
     size_VS = voxel_spaces{1}.size;
     vx_scale = voxel_spaces{1}.voxel_scale; 
     reflective_BCs = voxel_spaces{1}.reflective_BCs; 
@@ -79,7 +80,7 @@ function [VS_dQ, VS_Q_emit_no_self,VS_Q_self_absorb] = radiativeHeatFlowsMC(N_ra
             % Do not use logical indexing since in my tests it was slower to logically index 3-4 large matrices than
             % just multiplying them all as is.
             VS_Q_emit_surf_band = sigma*vx_scale^2*VS_surf_areas.*VS_opaq_eps.*VS_nn.*VS_T.^4; % (3D double) [W]: emissive power from each surface voxel within band
-            VS_Q_emit_PM_band = 4*sigma*vx_scale^2*VS_PM_kappa.*VS_nn.*VS_T.^4; % (3D double) [W]: emissive power from each PM voxel within band (Modest eq 10.54)
+            VS_Q_emit_PM_band = 4*sigma*prod(Vxyz)*vx_scale^2*VS_PM_kappa.*VS_nn.*VS_T.^4; % (3D double) [W]: emissive power from each PM voxel within band (Modest eq 10.54)
         else    
             % Get lower and upper wavelength of each band
             lb = spectral_band_edges(n);
@@ -90,7 +91,7 @@ function [VS_dQ, VS_Q_emit_no_self,VS_Q_self_absorb] = radiativeHeatFlowsMC(N_ra
             VS_Q_emit_surf_band(VS_surfaces) = vx_scale.^2*VS_surf_areas(VS_surfaces).*VS_opaq_eps(VS_surfaces).*spectralBandPower(lb,ub,VS_T(VS_surfaces),VS_nn(VS_surfaces)); % (3D double) [W]: emissive power from each surface voxel within band according to Planck's law
             VS_Q_emit_PM_band = zeros(size_VS);
             VS_PM = logical(VS_PM_kappa);
-            VS_Q_emit_PM_band(VS_PM) = 4*vx_scale.^2*VS_PM_kappa(VS_PM).*spectralBandPower(lb,ub,VS_T(VS_PM),VS_nn(VS_PM)); % (3D double) [W]: emissive power from each PM voxel within band (Modest eq 10.54)
+            VS_Q_emit_PM_band(VS_PM) = 4*prod(Vxyz)*vx_scale^2*VS_PM_kappa(VS_PM).*spectralBandPower(lb,ub,VS_T(VS_PM),VS_nn(VS_PM)); % (3D double) [W]: emissive power from each PM voxel within band (Modest eq 10.54)
         end
 
         Q_emit_surf_tot_band = sum(VS_Q_emit_surf_band,'all'); % (1D double) [W]: % Total emissive power from surface voxels
@@ -255,7 +256,7 @@ function [VS_dQ, VS_Q_emit_no_self,VS_Q_self_absorb] = radiativeHeatFlowsMC(N_ra
 
         ray_generation_time(n) = toc;
         tic
-        [absorption_pos_cur,events] = traverseRays(rays_pos,rays_dir,VS_opaq,VS_opaq_eps,VS_surf_norms,VS_PM_kappa,VS_nn,reflective_BCs,size_VS);
+        [absorption_pos_cur,events] = traverseRays(rays_pos,rays_dir,VS_opaq,VS_opaq_eps,VS_surf_norms,VS_PM_kappa,VS_nn,reflective_BCs,Vxyz,size_VS);
         ray_tracing_time(n) = toc;
         try
         self_absorption_pos{n} = absorption_pos_cur(events(1:N_rays_vx_band(n))==4,:); % Self absorptions only considered if the ray is emitted from a voxel, not if emitted from an Flux object

@@ -38,8 +38,9 @@ VS_opaq(end,:,:) = 1; % S4
 VS_opaq_eps = double(VS_opaq)*eps_1_3; % sets e1,e3
 VS_opaq_eps(1,:,:) = eps_2_4; % set e2
 VS_opaq_eps(end,:,:) = eps_2_4;  % set e4
+Vxyz = [1,1,1];
 
-[VS_surf_norms, VS_surf_areas] = getNormalsAndSurfaceAreas(VS_opaq,ns);
+[VS_surf_norms, VS_surf_areas] = getNormalsAndSurfaceAreas(VS_opaq,ns,Vxyz);
 VS_surf_norms_exact = cell(size_VS);
 VS_surf_norms_exact(2:(end-1),1,:) = {[0 1 0]}; % S1
 VS_surf_norms_exact(2:(end-1),end,:) = {[0 -1 0]}; % S3
@@ -89,6 +90,7 @@ voxel_space.refractive_indexes = VS_nn;
 voxel_space.size = size_VS;
 voxel_space.voxel_scale = vx_scale;
 voxel_space.reflective_BCs = reflective_BCs;
+voxel_space.Vxyz = Vxyz;
 
 
 %% Analytic Solution (from Modest)

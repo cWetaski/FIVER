@@ -22,6 +22,7 @@ max_itr = 200;
 tau_L = [0.1];
 tau_L_strings = string(tau_L); % Used for plotting and retrieving exact solution
 N_tau_L = length(tau_L);
+Vxyz = [1,1,1];
 
 
 % Temperature values are arbitrary.
@@ -43,7 +44,7 @@ sigma = 5.670374419*10^(-8); % [W/m^2-K];
 
 %% Derived Parameters
 size_VS = [X+2,Y,Z]; %  +2 because each plate is 1 vx thick, so opposing surface distance is X
-PM_kappa = tau_L/X; % [1/vx]: Linear absorption coefficient
+PM_kappa = tau_L/X/Vxyz(1); % [1/vx]: Linear absorption coefficient
 
 %% Load exact solution
 exact_table = load("ParallelPlatesPM_Exact.mat").results_table; 
@@ -89,6 +90,7 @@ voxel_space.PM_absorption_coeffs = VS_PM_kappa;
 voxel_space.refractive_indexes = VS_nn;
 voxel_space.size = size_VS;
 voxel_space.voxel_scale = vx_scale;
+voxel_space.Vxyz = Vxyz;
 voxel_space.reflective_BCs = reflective_BCs;
 
 %% Fixed temperatures for equilibrium solver
