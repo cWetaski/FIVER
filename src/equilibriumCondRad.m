@@ -86,17 +86,6 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr] = equilibriumCondRad(N_rays,VS_T,VS
     vx_scale = voxel_spaces{1}.voxel_scale;
     VS_alpha = voxel_spaces{1}.thermal_conductivity;
     
-    % max_PM_kappa = 0;
-    % for i = 1:N_bands
-    %     VS_PM_kappa = voxel_spaces{i}.PM_absorption_coeffs;
-    %     max_PM_kappa = max([max_PM_kappa;VS_PM_kappa(:)]);
-    % end
-    % if max_PM_kappa > 0
-    %     N_param = max_PM_kappa/vx_scale*max(VS_alpha(:))/(4*sigma*max(VS_T(:))^3); % Estimate conduction-to-radiation factor (see Modest pp 725)
-    %     dt = t_step_scaling*1./max_PM_kappa^2*N_param*vx_scale^2/(2*max(VS_alpha(:))); % [s]: Time step as N_param gets smaller, time step also gets smaller since more risk of diverging when radiation dominates, time step decreases with increasing PM_kappa since solution is exploding otherwise
-    % else
-    %     dt = t_step_scaling*(2*max(VS_alpha(:))/vx_scale)/(4*sigma*max(VS_T(:)).^3)*vx_scale^2; % No participating media
-    % end
     %% Define conduction problem;
     thermal_mesh = createMesh3D(size_VS(1),size_VS(2),size_VS(3),size_VS(1)*vx_scale(1),size_VS(2)*vx_scale(2),size_VS(3)*vx_scale(2));
     BC = createBC(thermal_mesh); % all Neumann boundary condition structure is default
