@@ -76,10 +76,7 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr] = equilibriumCondRad(N_rays,VS_T,VS
         [VS_T_new,VS_dQ,VS_dT,count_itr] = equilibriumRad(N_rays,VS_T,VS_T_fixed,voxel_spaces,varargin{:}); % Go to pure radiation solver
         return
     end
-
-    %% Constants
-    %sigma = 5.670374419*10^(-8); % [W/(m^2-K^4)]: Stefan-Boltzmann constant
-    
+ 
     %% Unpack relevant params from voxel space
     N_bands = length(spectral_band_edges)-1;
     size_VS = voxel_spaces{1}.size; 
