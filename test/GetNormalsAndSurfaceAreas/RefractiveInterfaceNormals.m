@@ -5,7 +5,7 @@ format shortG
 %% Gray enclosue geometry from Modest "Radiative Heat Transfer" 3ed example 5.4
 % But with refractive interface halfway along the x-axis, checking if getting normals with refraction works correctly
 
-vx_scale = 0.002; % [m/vx]: Scale of voxels
+size_VS = [20,20,2]; % [m/vx]: Scale of voxels
 ns = 2; % neighbourhood size for surf normal determination
 
 %% Params - from Modest
@@ -14,7 +14,7 @@ h = 0.30; % [m]:
 w = 0.1; % [m]: this will be repeating boundary condition though
 
 %% Derived Parameters
-size_VS = round([L/vx_scale+2,h/vx_scale+2,w/vx_scale]); % +2 to accouunt for 1vx thickness in each direction
+vx_scale = [L/(size_VS(1)-2),h/(size_VS(2)-2),w/size_VS(3)]; % -2 to accouunt for 1vx thickness in each direction
 
 %% Generate Voxel Space
 VS_opaq = false(size_VS);
@@ -27,9 +27,8 @@ VS_opaq(end,:,:) = 1; % S4
 VS_nn = ones(size_VS);
 halfway_x = round(size_VS(1)/2);
 VS_nn(1:halfway_x,:,:) = 2;
-Vxyz = [1,1,1];
 
-[VS_surf_norms, VS_surf_areas] = getNormalsAndSurfaceAreas(VS_opaq,ns,Vxyz,VS_nn);
+[VS_surf_norms, VS_surf_areas] = getNormalsAndSurfaceAreas(VS_opaq,vx_scale,ns,VS_nn);
 VS_surf_norms_exact = cell(size_VS);
 VS_surf_norms_exact(halfway_x,:,:) = {[1 0 0]}; % Refractive interface
 VS_surf_norms_exact(halfway_x+1,:,:) = {[-1 0 0]}; % Refractive interface

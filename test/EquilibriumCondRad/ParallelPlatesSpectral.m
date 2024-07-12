@@ -16,9 +16,6 @@ X = 200;
 Y = 2; % Y boundary specularly reflective
 Z = 2; % Z boundary specularly reflective
 
-% Physical Dimensions
-L = 1; % [m]: Distance between plates (Y and Z also scaled accordingly)
-
 % Spectral bands
 nu_bar_bands = {3,3,3,3}; % Nondimensional frequency nu_bar = h*nu/(kb*T2); where kb is boltzmann constant 
 spectral_absorption_coeffs = {[1,0],[0,1],[1,0],[0,1]}; % scaling factor of optical depth in each band
@@ -41,13 +38,13 @@ T2 = 400; % [K]: Temperature of plate 2 (arbitrary)
 theta_0 = 0.75;
 
 % Number of rays per iteration
-N_rays_set = [1*10^6];
+N_rays_set = [0.5*10^6];
 pure_rad_scale = 1;
 
-N_Psi = 5;
+N_Psi = 1;
 N_rays_Psi = 0.5*10^6;
 
-Vxyz = [1,1,1];
+vx_scale = [0.5,10,10];
 
 %% Constants
 sigma = 5.670374419*10^(-8); % [W/m^2-K^4]; Stefan Boltzmann
@@ -68,7 +65,6 @@ Psi_std = zeros(N_cases,1);
 
 for i = 1:N_cases
     %% Derived Parameters
-    vx_scale = L/X; % [m/vx]: Scale of voxels
     size_VS = [X+2,Y,Z]; %  +2 because each plate is 1 vx thick
     N_bands = length(nu_bar_bands{i})+1;
     if isempty(nu_bar_bands{i})
@@ -77,11 +73,10 @@ for i = 1:N_cases
         spectral_bands = [0,flip(planck*c./(nu_bar_bands{i}*kb*T2))*10^(6),1e9]; % [um]: flip order since increasing nu -> decreasing lambda 
     end
     cur_spectral_absorption_coeffs = flip(spectral_absorption_coeffs{i}); % flip order to correspond with lambda bands correctly
-    PM_kappa = cur_spectral_absorption_coeffs*tau_L/X; % [1/vx]:
+    PM_kappa = cur_spectral_absorption_coeffs*tau_L/(X*vx_scale(1)); % [1/m]:
     
-    beta = tau_L/X/Vxyz(1);
-    beta_real = beta/vx_scale; % [1/m]:
-    thermal_conductivity = N_param(i)*4*sigma*T2^3/beta_real; % [W/(m-K)]: By definition of N
+    beta = tau_L/(X*vx_scale(1)); % 1/m
+    thermal_conductivity = N_param(i)*4*sigma*T2^3/beta; % [W/(m-K)]: By definition of N
 
     if N_param(i) == 0
         N_rays = N_rays_set;
@@ -103,7 +98,7 @@ for i = 1:N_cases
         VS_opaq = logical(VS_plate1 + VS_plate2); % Join the two plates into 1 opaque voxel space;
         VS_opaq_eps = double(VS_opaq); % Both plates are black bodies
         
-        [VS_surf_norms, VS_surf_areas, ~] = getNormalsAndSurfaceAreas(VS_opaq,1,Vxyz); % Get surface normals and areas
+        [VS_surf_norms, VS_surf_areas, ~] = getNormalsAndSurfaceAreas(VS_opaq,vx_scale,1); % Get surface normals and areas
         
         reflective_BCs = false(2,3); % Initialize reflective BCs
         reflective_BCs(:,2:3) = 1; % Y and Z boundaries are reflective 
@@ -125,7 +120,6 @@ for i = 1:N_cases
         voxel_space.thermal_conductivity = thermal_conductivity;
         voxel_space.size = size_VS;
         voxel_space.voxel_scale = vx_scale;
-        voxel_space.Vxyz = Vxyz;
         voxel_space.reflective_BCs = reflective_BCs;
         voxel_spaces{j} = voxel_space;
     end
@@ -156,7 +150,7 @@ for i = 1:N_cases
         VS_dQ = radiativeHeatFlowsMC(N_rays_Psi,VS_T_equil{i},voxel_spaces, ...
             'SpectralBandEdges',spectral_bands,'OutputMode','quiet');
         
-        nondim_radiative_flux = -mean(VS_dQ,[2,3])/vx_scale^2/(sigma*T2^4); % big F+ in Crosbie Paper, Dividing by vx_scale^2 to convert from flux divergence to flux 
+        nondim_radiative_flux = -mean(VS_dQ,[2,3])/(sigma*T2^4); % big F+ in Crosbie Paper, Dividing by vx_scale^2 to convert from flux divergence to flux 
         Psi_test(j) = 4*N_param(i)*d_theta_d_tau-nondim_radiative_flux(1); % Eq 33 in paper, Note that VS_dQ = radiative flux in
         
     end

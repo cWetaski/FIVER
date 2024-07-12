@@ -12,7 +12,7 @@ X = 100;
 Y = 2; % Y and Z boundaries will be specularly reflecting
 Z = 2;
 
-N_rays = [5*10^4,5*10^5]%,5*10^6]; % Set number of rays (can be an array of rays)
+N_rays = [5*10^4,1*10^6]%,5*10^6]; % Set number of rays (can be an array of rays)
 N_par_workers = 6;
 
 max_itr = 200; % Maximum number of iterations we allow
@@ -26,8 +26,7 @@ eps1 = 1; % emissivity of plate 1;
 eps2 = 1; % emissivity of plate 2;
 T_i = ((T1^4+T2^4)/2)^(1/4); % initial guess for PM temperature
 
-scale_vx = 1; % [m/vx]: Scale of voxels
-Vxyz = [1,1,1];
+vx_scale = [0.1,10,10]; % m/vx
 
 visualize = true; % Whether to visualize voxel space at the end
 
@@ -44,7 +43,7 @@ sigma = 5.670374419*10^(-8); % [W/m^2-K];
 
 %% Derived Parameters
 size_VS = [X+2,Y,Z]; %  +2 because each plate is 1 vx thick, so opposing surface distance is X
-PM_kappa = tau_L/X/Vxyz(1); % [1/vx]: Linear absorption coefficient
+PM_kappa = tau_L/(X*vx_scale(1)); % [1/m]: Linear absorption coefficient
 tau_L_strings = string(tau_L); % Used for plotting and retrieving exact solution
 N_tau_L = length(tau_L);
 
@@ -68,7 +67,7 @@ VS_plate2(end,:,:) = 1;
 VS_opaq = logical(VS_plate1 + VS_plate2); % Join the two plates into 1 opaque voxel space;
 VS_opaq_eps = double(VS_opaq); % Both plates are black bodies
 
-[VS_surf_norms, VS_surf_areas, ~] = getNormalsAndSurfaceAreas(VS_opaq,1,Vxyz); % Get surface normals and areas
+[VS_surf_norms, VS_surf_areas, ~] = getNormalsAndSurfaceAreas(VS_opaq,vx_scale,1); % Get surface normals and areas
 
 reflective_BCs = false(2,3); % Initialize reflective BCs
 reflective_BCs(:,2:3) = 1; % Y and Z boundaries are reflective 
@@ -91,8 +90,7 @@ voxel_space.surface_areas = VS_surf_areas;
 voxel_space.PM_absorption_coeffs = VS_PM_kappa;
 voxel_space.refractive_indexes = VS_nn;
 voxel_space.size = size_VS;
-voxel_space.voxel_scale = scale_vx;
-voxel_space.Vxyz = Vxyz;
+voxel_space.voxel_scale = vx_scale;
 voxel_space.reflective_BCs = reflective_BCs;
 
 %% Fixed temperatures for equilibrium solver

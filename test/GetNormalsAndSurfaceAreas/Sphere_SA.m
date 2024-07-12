@@ -24,7 +24,7 @@ SA_error = zeros(N_tests,1);
 V_est = zeros(1,N_tests);
 V_error = zeros(1,N_tests);
 VS_surf_norms_saved = [];
-Vxyz = [1,1,1];
+vx_scale = [1,1,1];
 parfor i = 1:N_tests
     disp(D(i))
     %% Generate Voxel Space
@@ -35,8 +35,8 @@ parfor i = 1:N_tests
     V_error(i) = (V_est(i)-V(i))/V(i)*100;
     VS_opaq_outer = ~VS_opaq;
     
-    [VS_surf_norms, VS_surf_areas, ~] = getNormalsAndSurfaceAreas(VS_opaq,ns(1),Vxyz);
-    [VS_surf_norms_outer,VS_surf_areas_outer,~] = getNormalsAndSurfaceAreas(VS_opaq_outer,ns(1),Vxyz);
+    [VS_surf_norms, VS_surf_areas, ~] = getNormalsAndSurfaceAreas(VS_opaq,vx_scale,ns(1));
+    [VS_surf_norms_outer,VS_surf_areas_outer,~] = getNormalsAndSurfaceAreas(VS_opaq_outer,vx_scale,ns(1));
     SA_est_outer(i) = sum(VS_surf_areas_outer,'all');
     SA_error_outer(i) = (SA_est_outer(i)-SA(i))/SA(i)*100;
     SA_est(i) = sum(VS_surf_areas,"all");
@@ -71,7 +71,7 @@ SA_est_ns = zeros(N_ns,1);
 SA_error_ns = zeros(N_ns,1);
 for j = 1:N_ns
     disp(ns(j));
-    [VS_surf_norms, VS_surf_areas, ~] = getNormalsAndSurfaceAreas(VS_opaq,ns(j),Vxyz);
+    [VS_surf_norms, VS_surf_areas, ~] = getNormalsAndSurfaceAreas(VS_opaq,vx_scale,ns(j));
     for xi = 1:d+2
         for yi = 1:d+2
             for zi = 1:d+2

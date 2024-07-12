@@ -12,8 +12,8 @@ VS_opaq = false(size_VS-2);
 VS_opaq = padarray(VS_opaq,[1,1,1],true,'both');
 VS_opaq(:,:,end) = false;
 VS_eps = double(VS_opaq);
-Vxyz = [1,1,1];
-[VS_surf_norms, VS_surf_areas] = getNormalsAndSurfaceAreas(VS_opaq,1,Vxyz);
+vx_scale = [1,1,1];
+[VS_surf_norms, VS_surf_areas] = getNormalsAndSurfaceAreas(VS_opaq,vx_scale,1);
 for ii = 2:size_VS(1)-1 % This is necessary since otherwise the surf norms near the corners can have negative dot product with ray emitted from the center, meaning the traversal function doesn't allow a collision.
     VS_surf_norms{ii,1,end-1} = [0,1,0];
     VS_surf_norms{ii,end,end-1} = [0,-1,0];
@@ -27,11 +27,10 @@ voxel_space.opaque_voxels = VS_opaq;
 voxel_space.opaque_emissivities = VS_eps;
 voxel_space.surface_normals = VS_surf_norms;
 voxel_space.surface_areas = VS_surf_areas;
-voxel_space.voxel_scale = 1;
+voxel_space.voxel_scale = vx_scale;
 voxel_space.PM_absorption_coeffs = zeros(size_VS);
 voxel_space.refractive_indexes = VS_nn;
 voxel_space.reflective_BCs = zeros(2,3);
-voxel_space.Vxyz = Vxyz;
 
 VS_T = zeros(size_VS);
 

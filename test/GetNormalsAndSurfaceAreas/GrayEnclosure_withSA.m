@@ -7,7 +7,7 @@ format shortG
 % Surface areas and normals are estimated using GetNormalsAndSurfaceAreas.m
 
 %% Params - for ray-tracing
-vx_scale = 0.02; % [m/vx]: Scale of voxels
+size_VS = [20,20,2];
 N_rays = 10^7; % Set number of rays
 N_tests = 1; % Number of times to trace N_rays
 ns = 2; % neighbourhood size for surf normal determination
@@ -25,7 +25,7 @@ eps_2_4 = 0.8; % emissivity of S2 and S4
 sigma = 5.670374419*10^(-8); % [W/m^2-K];
 
 %% Derived Parameters
-size_VS = round([L/vx_scale+2,h/vx_scale+2,w/vx_scale]); % +2 to accouunt for 1vx thickness in each direction
+vx_scale = [L/(size_VS(1)-2),h/(size_VS(2)-2),w/size_VS(3)]; % -2 to accouunt for 1vx thickness wall in each direction
 
 %% Generate Voxel Space
 % hardcoded voxel space, being lazy;
@@ -38,9 +38,8 @@ VS_opaq(end,:,:) = 1; % S4
 VS_opaq_eps = double(VS_opaq)*eps_1_3; % sets e1,e3
 VS_opaq_eps(1,:,:) = eps_2_4; % set e2
 VS_opaq_eps(end,:,:) = eps_2_4;  % set e4
-Vxyz = [1,1,1];
 
-[VS_surf_norms, VS_surf_areas] = getNormalsAndSurfaceAreas(VS_opaq,ns,Vxyz);
+[VS_surf_norms, VS_surf_areas] = getNormalsAndSurfaceAreas(VS_opaq,vx_scale,ns);
 VS_surf_norms_exact = cell(size_VS);
 VS_surf_norms_exact(2:(end-1),1,:) = {[0 1 0]}; % S1
 VS_surf_norms_exact(2:(end-1),end,:) = {[0 -1 0]}; % S3
@@ -90,7 +89,6 @@ voxel_space.refractive_indexes = VS_nn;
 voxel_space.size = size_VS;
 voxel_space.voxel_scale = vx_scale;
 voxel_space.reflective_BCs = reflective_BCs;
-voxel_space.Vxyz = Vxyz;
 
 
 %% Analytic Solution (from Modest)

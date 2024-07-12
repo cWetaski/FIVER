@@ -44,11 +44,9 @@ function VS_T_new = transientCondRad(N_rays,VS_T,VS_T_fixed,voxel_spaces,N_time_
     VS_alpha(isnan(VS_alpha)) = 0;
     size_VS = voxel_spaces{1}.size; 
     vx_scale = voxel_spaces{1}.voxel_scale;
-    Vxyz = voxel_spaces{1}.Vxyz;
     
     %% Define conduction problem;
-    cell_sizes = Vxyz*vx_scale;
-    thermal_mesh = createMesh3D(size_VS(1),size_VS(2),size_VS(3),size_VS(1)*cell_sizes(1),size_VS(2)*cell_sizes(2),size_VS(3)*cell_sizes(3));
+    thermal_mesh = createMesh3D(size_VS(1),size_VS(2),size_VS(3),size_VS(1)*vx_scale(1),size_VS(2)*vx_scale(2),size_VS(3)*vx_scale(3));
     BC = createBC(thermal_mesh); % all Neumann boundary condition structure is default
     
     alpha_cell = createCellVariable(thermal_mesh, VS_alpha); % assign the thermal diffusivity to the cells
@@ -92,10 +90,10 @@ function VS_T_new = transientCondRad(N_rays,VS_T,VS_T_fixed,voxel_spaces,N_time_
             [VS_dQ, VS_Q_emit_prev] = radiativeHeatFlowsMC(N_rays,VS_T_prev,voxel_spaces,"SpectralBandEdges",spectral_band_edges); % (3D Double) [W]: Power in/out of each voxel
             heat_flows_time = toc(heat_flows_tic);
             % Split dQ into a source term of form Y = aT + b; 
-            source_const = (VS_dQ + 4*VS_Q_emit_prev)./(VS_cc.*VS_rho.*prod(cell_sizes)); % K/s Divide by voxel element volume to get W/m3 i.e. source term comes from divergence of radiative heat flux
+            source_const = (VS_dQ + 4*VS_Q_emit_prev)./(VS_cc.*VS_rho.*prod(vx_scale)); % K/s Divide by voxel element volume to get W/m3 i.e. source term comes from divergence of radiative heat flux
             source_const = padarray(source_const,[1,1,1],0,'both');
             source_const_cell.value = source_const;
-            source_lin = 4*VS_Q_emit_prev./VS_T_prev./(VS_cc.*VS_rho.*prod(cell_sizes)); % K/s
+            source_lin = 4*VS_Q_emit_prev./VS_T_prev./(VS_cc.*VS_rho.*prod(vx_scale)); % K/s
             source_lin(isnan(source_lin)) = 0;
             source_lin = padarray(source_lin,[1,1,1],0,'both');
             source_lin_cell.value = source_lin; % Assign to source cell variable

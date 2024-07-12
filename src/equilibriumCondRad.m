@@ -85,7 +85,6 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr] = equilibriumCondRad(N_rays,VS_T,VS
     size_VS = voxel_spaces{1}.size; 
     vx_scale = voxel_spaces{1}.voxel_scale;
     VS_alpha = voxel_spaces{1}.thermal_conductivity;
-    Vxyz = voxel_spaces{1}.Vxyz;
     
     % max_PM_kappa = 0;
     % for i = 1:N_bands
@@ -99,8 +98,7 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr] = equilibriumCondRad(N_rays,VS_T,VS
     %     dt = t_step_scaling*(2*max(VS_alpha(:))/vx_scale)/(4*sigma*max(VS_T(:)).^3)*vx_scale^2; % No participating media
     % end
     %% Define conduction problem;
-    cell_sizes = Vxyz*vx_scale;
-    thermal_mesh = createMesh3D(size_VS(1),size_VS(2),size_VS(3),size_VS(1)*cell_sizes(1),size_VS(2)*cell_sizes(2),size_VS(3)*cell_sizes(2));
+    thermal_mesh = createMesh3D(size_VS(1),size_VS(2),size_VS(3),size_VS(1)*vx_scale(1),size_VS(2)*vx_scale(2),size_VS(3)*vx_scale(2));
     BC = createBC(thermal_mesh); % all Neumann boundary condition structure is default
     
     alpha_cell = createCellVariable(thermal_mesh, VS_alpha); % assign the thermal diffusivity to the cells
@@ -169,10 +167,10 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr] = equilibriumCondRad(N_rays,VS_T,VS
         VS_dQ(VS_T_fixed) = 0;
         
         % Split dQ into a source term of form Y = aT + b; 
-        source_const = (VS_dQ + 4*VS_Q_emit_no_self)/vx_scale^3; % Divide by voxel element volume to get W/m3 i.e. source term comes from divergence of radiative heat flux
+        source_const = (VS_dQ + 4*VS_Q_emit_no_self)/prod(vx_scale); % Divide by voxel element volume to get W/m3 i.e. source term comes from divergence of radiative heat flux
         source_const = padarray(source_const,[1,1,1],0,'both');
         source_const_cell.value = source_const;
-        source_lin = 4*VS_Q_emit_no_self./VS_T_prev/vx_scale^3;
+        source_lin = 4*VS_Q_emit_no_self./VS_T_prev/prod(vx_scale);
         source_lin(isnan(source_lin)) = 0;
         source_lin = padarray(source_lin,[1,1,1],0,'both');
         source_lin_cell.value = source_lin; % Assign to source cell variable

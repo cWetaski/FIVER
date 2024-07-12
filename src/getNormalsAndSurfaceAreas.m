@@ -1,7 +1,7 @@
 %   AUTHOR: Charles Wetaski
 %   LAST CHECKED: 2024-06-07
 
-function [VS_surf_norms,VS_surf_areas,inds] = getNormalsAndSurfaceAreas(VS_opaq,ns,Vxyz,VS_nn)
+function [VS_surf_norms,VS_surf_areas,inds] = getNormalsAndSurfaceAreas(VS_opaq,vx_scale,ns,VS_nn)
     %GETNORMALSANDSURFACEAREAS Returns the normal vector and surface area (in vx^2) of each external surface voxel in VS
     %   INPUTS:
     %       VS_opaq (3D logical):           Voxel space of opaque voxels
@@ -18,7 +18,7 @@ function [VS_surf_norms,VS_surf_areas,inds] = getNormalsAndSurfaceAreas(VS_opaq,
     VS_surf_norms = cell(size_VS);
     VS_surf_areas = zeros(size_VS);
     inds_sparse = zeros(size_VS);
-    A_norm = [Vxyz(2)*Vxyz(3),Vxyz(1)*Vxyz(3),Vxyz(1)*Vxyz(2)]; % Area of planes normal to each direction [vx^2]
+    A_norm = [vx_scale(2)*vx_scale(3),vx_scale(1)*vx_scale(3),vx_scale(1)*vx_scale(2)]; % Area of planes normal to each direction [vx^2]
 
     if nargin == 4 % Want normals at refractive interfaces as well
         nn_vals = unique(VS_nn); % Get unique refractive index values
@@ -26,7 +26,7 @@ function [VS_surf_norms,VS_surf_areas,inds] = getNormalsAndSurfaceAreas(VS_opaq,
 
         for i = 1:N_nn % iterate over different refractive indexes
             VS_region_i = (VS_nn == nn_vals(i)); % get current region
-            VS_surf_norms_i = getNormalsAndSurfaceAreas(VS_region_i,ns); % Recursively call surface norms on refraction regions
+            VS_surf_norms_i = getNormalsAndSurfaceAreas(VS_region_i,vx_scale,ns); % Recursively call surface norms on refraction regions
             VS_surf_norms(VS_region_i) = VS_surf_norms_i(VS_region_i); % Assign to surf norms cell array 
         end
     end
@@ -40,7 +40,7 @@ function [VS_surf_norms,VS_surf_areas,inds] = getNormalsAndSurfaceAreas(VS_opaq,
     
     surf_norms_lin = zeros(N_surf_voxels,3);
     for i = 1:N_surf_voxels
-        cur_norm = getNormalVector(inds(i),VS_opaq,ns,Vxyz); % estimate the normal vector (vector is normalized)
+        cur_norm = getNormalVector(inds(i),VS_opaq,ns,vx_scale); % estimate the normal vector (vector is normalized)
         for j = 1:3
             if abs(cur_norm(j)) > 0 && abs(cur_norm(j)) < 10^(-9) % Just a rounding error
                 cur_norm(j) = 0;

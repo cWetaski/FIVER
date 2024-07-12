@@ -12,22 +12,21 @@ ray_dir_inv_CDF = @(N_rays) repmat([0,0,1],[N_rays,1]);
 ray_fun = @(N_rays) [ray_pos_inv_CDF(N_rays),ray_dir_inv_CDF(N_rays)];
 voxel_space = VoxelSpace();
 voxel_space.size = size_VS;
-Vxyz = [1,1,1];
+vx_scale = [1,1,1];
 
 VS_opaq = false(size_VS);
 VS_opaq(:,end,:) = true;
 VS_eps = double(VS_opaq);
-[VS_surf_norms, VS_surf_areas] = getNormalsAndSurfaceAreas(VS_opaq,1,Vxyz);
+[VS_surf_norms, VS_surf_areas] = getNormalsAndSurfaceAreas(VS_opaq,vx_scale,1);
 VS_nn = ones(size_VS);
 voxel_space.opaque_voxels = VS_opaq;
 voxel_space.opaque_emissivities = VS_eps;
 voxel_space.surface_normals = VS_surf_norms;
 voxel_space.surface_areas = VS_surf_areas;
-voxel_space.voxel_scale = 1;
+voxel_space.voxel_scale = vx_scale;
 voxel_space.PM_absorption_coeffs = zeros(size_VS);
 voxel_space.refractive_indexes = VS_nn;
 voxel_space.reflective_BCs = zeros(2,3);
-voxel_space.Vxyz = Vxyz;
 
 VS_T = zeros(size_VS);
 
