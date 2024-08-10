@@ -33,9 +33,13 @@ function [VS_surf_norms,VS_surf_areas,inds] = getNormalsAndSurfaceAreas(VS_opaq,
     % Now get surface normals for opaque voxels
     VS_surf_external = countConnectivity(VS_opaq); % (3D double (int)): get the 6-connectivity of each voxel (boundaries are considered solid)
     VS_surf_external(VS_surf_external == 6) = 0; % remove 6-connected (i.e., internal) voxels -> external surface voxel remain
+    VS_surf_faces = 6-VS_surf_external;
+    VS_surf_faces(VS_surf_faces==6) = 0;
+    VS_surf_faces = (VS_surf_faces-1)*0.5+1;
+    mean_surf_faces = mean(VS_surf_faces(VS_surf_faces>0));
 
-    inds = find(VS_surf_external); % (1D col double (int)): get linear indices corresponding to external surface voxels
-    
+    [inds] = find(VS_surf_external); % (1D col double (int)): get linear indices corresponding to external surface voxels
+    vals = VS_surf_faces(inds);
     N_surf_voxels = length(inds); % (scalar double (int)): Count number of external surface voxels
     
     surf_norms_lin = zeros(N_surf_voxels,3);
@@ -49,6 +53,7 @@ function [VS_surf_norms,VS_surf_areas,inds] = getNormalsAndSurfaceAreas(VS_opaq,
             end
         end
         VS_surf_norms{inds(i)} = cur_norm; % store normal vector
+        
         inds_sparse(inds(i)) = i;
         surf_norms_lin(i,:) = cur_norm;
         VS_surf_areas(inds(i)) = 1/max(abs(cur_norm)./A_norm); % estimate the area (source: Flin et al. 2005, "Adaptive Estimation of Normals and Surface Area ...")

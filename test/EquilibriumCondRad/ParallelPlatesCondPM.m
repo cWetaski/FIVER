@@ -32,7 +32,7 @@ theta_0 = 0.75;
 
 % Number of rays per iteration
 N_rays = [1*10^5,5*10^5];%2*10^6]; 
-vx_scale = [0.05,1,1]; % m/vx
+vx_scale = [0.05,1,2]; % m/vx
 
 file_name = 'ParallelPlatesCondPM';
 

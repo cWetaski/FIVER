@@ -765,6 +765,11 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
                 % Get surf_norm
                 surf_norm = VS_surf_norms{XYZ_prev(1),XYZ_prev(2),XYZ_prev(3)};
                 if interior_collision_bool % Adjust position so that it does not enter the interior voxel
+                    if dot(surf_norm,ray_dir) < 0
+                        end_pos = XYZ_prev;
+                        event = 3;
+                        break
+                    end
                     [~, ind] = max(abs(surf_norm));
                     XYZ = XYZ_prev;
                     XYZ(ind) = XYZ(ind)+sign(surf_norm(ind));
@@ -862,7 +867,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
         if loop_count == max_loops % Resolve stuck rays
             if VS_opaq(XYZ(1),XYZ(2),XYZ(3)) % Check current voxel
                 if VS_opaq_eps(XYZ(1),XYZ(2),XYZ(3))>0
-                    event = 1;
+                    event = 3;
                     end_pos = XYZ;
                     rtrn = true;
                 else % If it's a pure reflective voxel -> move it along the surface normal into the next voxel
@@ -878,8 +883,8 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
                 locs = find(VS_opaq_eps>0 | VS_PM_kappa>0);
                 [X,Y,Z] = ind2sub(size_VS,locs(randi(length(locs))));
                 end_pos = [X,Y,Z];
-                if VS_opaq_eps>0
-                    event = 1;
+                if VS_opaq_eps(X,Y,Z)>0
+                    event = 3;
                 else
                     event = 2;
                 end
@@ -889,5 +894,8 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
         end
         rays_end_pos(nn_ray,:) = end_pos;
         rays_events(nn_ray) = event;
+        if event == 0
+            debug = 0
+        end
     end % End parfor
 end % End function

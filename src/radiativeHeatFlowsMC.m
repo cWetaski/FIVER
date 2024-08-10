@@ -1,7 +1,7 @@
 %   AUTHOR: Charles Wetaski
 %   LAST CHECKED: 2024-06-07 (Charles Wetaski)
 
-function [VS_dQ, VS_Q_emit_no_self,VS_Q_self_absorb] = radiativeHeatFlowsMC(N_rays,VS_T,voxel_spaces,varargin)
+function [VS_dQ, VS_Q_emit_no_self,VS_self_absorb] = radiativeHeatFlowsMC(N_rays,VS_T,voxel_spaces,varargin)
     % RADIATIVEHEATFLOWS Calculates the radiative heat flows of each voxel using monte carlo ray tracing.
     %   N_rays are generated based on the temperature field and voxel_spaces properties. The rays are traced
     %   until absorption or exiting the voxel space.
@@ -122,7 +122,7 @@ function [VS_dQ, VS_Q_emit_no_self,VS_Q_self_absorb] = radiativeHeatFlowsMC(N_ra
     if Q_emit_tot == 0
         VS_dQ = zeros(size_VS);
         VS_Q_emit_no_self = zeros(size_VS);
-        VS_Q_self_absorb = zeros(size_VS);
+        VS_self_absorb = zeros(size_VS);
         return
     end
     power_per_ray = Q_emit_tot/N_rays; % [W/ray]
@@ -149,7 +149,9 @@ function [VS_dQ, VS_Q_emit_no_self,VS_Q_self_absorb] = radiativeHeatFlowsMC(N_ra
     
     %% Initialize results arrays
     emission_counts = zeros(N_vx_tot,1); % Combined emission counts vector
-    absorption_pos = cell(N_bands,1); % Absorptions positions
+    absorption_counts_PM =zeros(N_vx_tot,1);
+    absorption_pos_PM = cell(N_bands,1); % Absorptions positions
+    absorption_pos_surf = cell(N_bands,1);
     self_absorption_pos = cell(N_bands,1);
 
     %% Monitoring
@@ -248,33 +250,35 @@ function [VS_dQ, VS_Q_emit_no_self,VS_Q_self_absorb] = radiativeHeatFlowsMC(N_ra
             rays_pos = [rays_pos;rays_flux_pos]; %#ok<AGROW>
             rays_dir = [rays_dir;rays_flux_dir]; %#ok<AGROW>
         end
-        %if any(size_VS==1) % This makes traversal faster should we have a 2D or 1D domain since we don't have to constantly bounce off the boundary
-        %    rays_dir(:,size_VS==1) = 0;
-        %    rays_dir = rays_dir./vecnorm(rays_dir,2,2);
-        %end
 
         ray_generation_time(n) = toc;
         tic
         [absorption_pos_cur,events] = traverseRays(rays_pos,rays_dir,VS_opaq,VS_opaq_eps,VS_surf_norms,VS_PM_kappa,VS_nn,reflective_BCs,vx_scale,size_VS);
         ray_tracing_time(n) = toc;
-        try
         self_absorption_pos{n} = absorption_pos_cur(events(1:N_rays_vx_band(n))==4,:); % Self absorptions only considered if the ray is emitted from a voxel, not if emitted from an Flux object
-        catch e
-        debug = 0
-        end
-        absorption_pos{n} = [absorption_pos_cur((events==2) | (events ==3),:);absorption_pos_cur((N_rays_vx_band(n)+1:end)==4,:);absorption_flux_rays];
-        
+        absorption_pos_PM{n} = [absorption_pos_cur((events==2),:);absorption_pos_cur((N_rays_vx_band(n)+1:end)==4,:);absorption_flux_rays];
+        absorption_pos_surf{n} = [absorption_pos_cur((events==3),:)];
+       
     end % Iterating over spectral bands
-    absorption_pos = cell2mat(absorption_pos);
-    if isempty(absorption_pos>0)
-        absorption_counts = zeros(N_vx_tot,1);
+    absorption_pos_PM = cell2mat(absorption_pos_PM);
+    absorption_pos_surf = cell2mat(absorption_pos_surf);
+    self_absorption_pos = cell2mat(self_absorption_pos);
+    if isempty(absorption_pos_PM)
+        absorption_counts_PM = zeros(N_vx_tot,1);
     else
-        absorption_counts = histcounts(absorption_pos(:,1) + ...
-                                   (absorption_pos(:,2) - 1)*size_VS(1) + ...
-                                   (absorption_pos(:,3) - 1)*size_VS(1)*size_VS(2), ... # This is faster version of sub2ind
+        absorption_counts_PM = histcounts(absorption_pos_PM(:,1) + ...
+                                   (absorption_pos_PM(:,2) - 1)*size_VS(1) + ...
+                                   (absorption_pos_PM(:,3) - 1)*size_VS(1)*size_VS(2), ... # This is faster version of sub2ind
                                     1:(N_vx_tot+1))';
     end
-    self_absorption_pos = cell2mat(self_absorption_pos);
+    if isempty(absorption_pos_surf)
+        absorption_counts_surf = zeros(N_vx_tot,1);
+    else
+        absorption_counts_surf = histcounts(absorption_pos_surf(:,1) + ...
+                                   (absorption_pos_surf(:,2) - 1)*size_VS(1) + ...
+                                   (absorption_pos_surf(:,3) - 1)*size_VS(1)*size_VS(2), ... # This is faster version of sub2ind
+                                    1:(N_vx_tot+1))';
+    end
     if isempty(self_absorption_pos)
         self_absorption_counts = zeros(N_vx_tot,1);
     else
@@ -283,16 +287,75 @@ function [VS_dQ, VS_Q_emit_no_self,VS_Q_self_absorb] = radiativeHeatFlowsMC(N_ra
                                    (self_absorption_pos(:,3) - 1)*size_VS(1)*size_VS(2), ... # This is faster version of sub2ind
                                     1:(N_vx_tot+1))';
     end
-    emission_counts = emission_counts-self_absorption_counts;
+    %% Compile emission and absorption counts
+
+    VS_emit = reshape(emission_counts-self_absorption_counts,size_VS); 
+    VS_self_absorb = reshape(self_absorption_counts,size_VS);
+    VS_absorb_PM = reshape(absorption_counts_PM,size_VS);
+    VS_absorb_surf = reshape(absorption_counts_surf,size_VS);
+
+    %% Apply a smoothing filter to surface absorptions which ignores non-surface voxels and conserves overall absorption counts
+    % https://stackoverflow.com/a/61481246/21592632 - filter_nan_gaussian_conserving2 (but I'm not using a gaussian kernel)
+    ns = voxel_spaces{1}.ns_normals;
+    ns = 1;
+    base_vals = -ns:ns;
+    [X,Y,Z] = meshgrid(base_vals*vx_scale(1)/min(vx_scale),base_vals*vx_scale(2)/min(vx_scale),base_vals*vx_scale(3)/min(vx_scale));
+    kernel = 1./max(1,max(max(abs(X),abs(Y)),abs(Z))); % This equally weights cells if vx_scale is constant, but if 1 dimension is much larger (as is often, then that dimension is weighted less!) 
+    kernel = kernel/sum(kernel(:));
+    mask = VS_absorb_surf==0;
+    
+    loss = zeros(size_VS+ns*2);
+    loss(padarray(mask,[ns,ns,ns],"replicate",'both'))=1;
+    loss = convn(loss,kernel,'valid');
+    
+    %VS_absorb_surf_smooth1 = VS_absorb_surf;
+    %VS_absorb_surf_smooth1(mask) = 0;
+    %VS_absorb_surf_smooth1 = convn(VS_absorb_surf_smooth1,kernel,'same');
+    %VS_absorb_surf_smooth1(mask) = 0;
+    %VS_absorb_surf_smooth1 = VS_absorb_surf_smooth1 + loss.*VS_absorb_surf;
+    %VS_absorb_surf_smooth2 = padarray(VS_absorb_surf,[1,1,1],"replicate","both");
+    VS_absorb_surf_smooth2 = VS_absorb_surf./(1-loss);
+    VS_absorb_surf_smooth2(mask) =0;
+    VS_absorb_surf_smooth2 = padarray(VS_absorb_surf_smooth2,[1,1,1],"replicate","both");
+    VS_absorb_surf_smooth2 = convn(VS_absorb_surf_smooth2,kernel,'valid');
+
+    VS_absorb_surf_smooth2(mask) = 0;
+
     %% Calculate Delta_Q
     % Net number of absorbed rays for each voxel * power per ray = Power out of each voxel
-    VS_Q_self_absorb = self_absorption_counts*power_per_ray;
-    VS_Q_self_absorb = reshape(VS_Q_self_absorb,size_VS);
-
-    VS_dQ = (absorption_counts - emission_counts)*power_per_ray; % (1D double) [W]
-    VS_dQ = reshape(VS_dQ,size_VS); % (3D double) [W]: reshape to 3D voxel space
-
-    VS_Q_emit_no_self = VS_Q_emit - VS_Q_self_absorb; % Remove self-absorptions from emissive power -> this is relavent for coupling with conduction 
+    VS_dQ = (VS_absorb_PM+VS_absorb_surf_smooth2-VS_emit)*power_per_ray; 
+    %VS_dQ_old = (VS_absorb_PM+VS_absorb_surf-VS_emit)*power_per_ray;
+    if false % Debugging!
+        round(sum(VS_absorb_surf_smooth2,'all')-sum(VS_absorb_surf,'all')) % Should be 0!
+        figure("Position",[500,50,800,700])
+        tiledlayout(2,2,"TileSpacing","tight","Padding","compact")
+        maxval = max(VS_dQ_old(:,:,1),[],'all');
+        minval = min(VS_dQ_old(:,:,1),[],'all');
+        maxabsval = max(abs(maxval),abs(minval));
+        crange = [-1,1]*maxabsval;
+        nexttile()
+        imagesc(VS_dQ_old(:,:,1))
+        colorbar();
+        title("Not smoothed, layer 1")
+        clim(crange)
+        nexttile();
+        imagesc(VS_dQ_old(:,:,end-1));
+        colorbar();
+        clim(crange)
+        title("Not smoothed, layer end-1");
+        nexttile();
+        imagesc(VS_dQ(:,:,1))
+        title("Smoothed, layer 1")
+        colorbar();
+        %clim(crange);
+        nexttile();
+        imagesc(VS_dQ(:,:,end))
+        title("Smoothed, layer end-1")
+        colorbar();
+        %clim(crange)
+    end
+    
+    VS_Q_emit_no_self = VS_Q_emit - VS_self_absorb*power_per_ray; % Remove self-absorptions from emissive power -> this is relavent for coupling with conduction 
     
     total_time = toc(outer_timer);
     if any(contains({'concise','verbose'},output_mode))
