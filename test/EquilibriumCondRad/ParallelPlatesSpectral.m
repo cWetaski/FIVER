@@ -12,7 +12,7 @@ outer_tic = tic;
 %% Params
 % Plates in YZ direction, separated by distance X
 % Voxel Space Dimensions
-X = 200;
+X = 100;
 Y = 2; % Y boundary specularly reflective
 Z = 2; % Z boundary specularly reflective
 
@@ -20,31 +20,31 @@ Z = 2; % Z boundary specularly reflective
 nu_bar_bands = {3,3,3,3}; % Nondimensional frequency nu_bar = h*nu/(kb*T2); where kb is boltzmann constant 
 spectral_absorption_coeffs = {[1,0],[0,1],[1,0],[0,1]}; % scaling factor of optical depth in each band
 
-% Time stepping
-t_step_factor = 1;  % Used to adjust time stepping if convergence is too slow or does not converge.
-max_itr = 1000;
+
 
 % Nondimensional conduction-to-radiation interaction parameter == k*beta/(4*sigma*T_2^4) (Different from modest)
 N_param = [0,0,0.05,0.05];
 N_cases = length(N_param);
 N_param_strings = string(N_param);
 
-
-
 % Free parameters
-T2 = 400; % [K]: Temperature of plate 2 (arbitrary)
+T2 = 500; % [K]: Temperature of plate 2 (arbitrary)
 
 % Initial nondimension temperature in medium
 theta_0 = 0.75;
 
 % Number of rays per iteration
-N_rays_set = [0.5*10^6];
-pure_rad_scale = 1;
+N_rays_set = [2e5,5e5,1e6,2e6];
+pure_rad_scale = 4; % Multiply last number of rays by this number in pure radiation case since it's much noisier;
+
+% Convergence
+max_itr = 50;
+N_prev_itr = 5;
 
 N_Psi = 1;
-N_rays_Psi = 0.5*10^6;
+N_rays_Psi = 1e6;
 
-vx_scale = [0.5,10,10];
+vx_scale = [1,100,100];
 
 %% Constants
 sigma = 5.670374419*10^(-8); % [W/m^2-K^4]; Stefan Boltzmann
@@ -52,7 +52,7 @@ planck = 6.62607004*10^(-34);     % Planck's constant [J s]
 c = 299792458;              % speed of light in a vacuum [m/s]
 kb = 1.38064852*10^(-23);    % Boltzmann's constant [J/K]
 
-tau_L = 1; % Results from modest are just for tau_L = 1.0
+tau_L = 1;
 
 T1 = T2/2; % [K]: Results Crosbie are for this case
 eps1 = 1; % emissivity of plate 1; results from Modest are just for black plates.
@@ -68,23 +68,37 @@ for i = 1:N_cases
     size_VS = [X+2,Y,Z]; %  +2 because each plate is 1 vx thick
     N_bands = length(nu_bar_bands{i})+1;
     if isempty(nu_bar_bands{i})
-        spectral_bands = [];
+        spectral_bands_edges = [];
     else
-        spectral_bands = [0,flip(planck*c./(nu_bar_bands{i}*kb*T2))*10^(6),1e9]; % [um]: flip order since increasing nu -> decreasing lambda 
+        spectral_bands_edges = [0,flip(planck*c./(nu_bar_bands{i}*kb*T2))*10^(6),1e6]; % [um]: flip order since increasing nu -> decreasing lambda 
     end
     cur_spectral_absorption_coeffs = flip(spectral_absorption_coeffs{i}); % flip order to correspond with lambda bands correctly
     PM_kappa = cur_spectral_absorption_coeffs*tau_L/(X*vx_scale(1)); % [1/m]:
     
     beta = tau_L/(X*vx_scale(1)); % 1/m
     thermal_conductivity = N_param(i)*4*sigma*T2^3/beta; % [W/(m-K)]: By definition of N
-
+    cp = 1;
+    rho = 1;
     if N_param(i) == 0
-        N_rays = N_rays_set;
+        if length(N_rays_set)>3
+            N_rays = N_rays_set(end-3:end);
+        else
+            N_rays = N_rays_set;
+        end
         N_rays(end) = N_rays(end)*pure_rad_scale; % More rays for pure radiation case
+        C_relax = 1;
+        C_converge = 1.5;
+    elseif N_param(i) < 0.1
+        C_relax = 0.7; % Underrelaxing is necessary for this case
+        C_converge = 1.1;
     elseif N_param(i) > 10
         N_rays = N_rays_set(1); % Ray tracing doesn't actually matter here
+        C_relax = 1;
+        C_converge = 1.1;
     else
         N_rays = N_rays_set;
+        C_relax = 0.7;
+        C_converge = 1.1;
     end
 
     %% Generate Voxel Spaces
@@ -118,6 +132,8 @@ for i = 1:N_cases
         voxel_space.PM_absorption_coeffs = VS_PM_kappa;
         voxel_space.refractive_indexes = VS_nn;
         voxel_space.thermal_conductivity = thermal_conductivity;
+        voxel_space.specific_heat = 1;
+        voxel_space.density = 1;
         voxel_space.size = size_VS;
         voxel_space.voxel_scale = vx_scale;
         voxel_space.reflective_BCs = reflective_BCs;
@@ -140,15 +156,17 @@ for i = 1:N_cases
     
     fprintf("Solving %d of %d    time = %0.3f \n",i,N_cases,toc(outer_tic))
     [VS_T_equil{i}, ~, ~, count_itr(i)] = equilibriumCondRad(N_rays,VS_T_old,VS_T_fixed,voxel_spaces, ... 
-        "SpectralBandEdges",spectral_bands,"OutputMode","verbose", ...
-        "ConvergenceConstant",1.5,'NPreviousIterations',5);
+        "SpectralBandEdges",spectral_bands_edges,"OutputMode","verbose", ...
+        "ConvergenceConstant",C_converge,'NPreviousIterations',N_prev_itr,'MaxIterations',max_itr, ...
+        "RelaxationConstant",C_relax);
+    VS_T_new = VS_T_equil{i};
 
     nondim_T{i} = mean(VS_T_equil{i},[2 3])/T2; % theta in Crosbie paper
     d_theta_d_tau = (nondim_T{i}(2)-nondim_T{i}(1))/(tau_L/X); % Approximation of derivative at boundary
     Psi_test = zeros(N_Psi,1);
     for j = 1:N_Psi % Calculate radiative heat flux N_psi times
         VS_dQ = radiativeHeatFlowsMC(N_rays_Psi,VS_T_equil{i},voxel_spaces, ...
-            'SpectralBandEdges',spectral_bands,'OutputMode','quiet');
+            'SpectralBandEdges',spectral_bands_edges,'OutputMode','quiet');
         
         nondim_radiative_flux = -mean(VS_dQ,[2,3])/(sigma*T2^4); % big F+ in Crosbie Paper, Dividing by vx_scale^2 to convert from flux divergence to flux 
         Psi_test(j) = 4*N_param(i)*d_theta_d_tau-nondim_radiative_flux(1); % Eq 33 in paper, Note that VS_dQ = radiative flux in

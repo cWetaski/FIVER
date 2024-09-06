@@ -8,15 +8,15 @@ clc
 outer_tic = tic;
 %% Params
 % Plates in YZ plane, separated by distance X
-X = 100;
+X = 40;
 Y = 2; % Y and Z boundaries will be specularly reflecting
 Z = 2;
 
-N_rays = [5*10^4,1*10^6]%,5*10^6]; % Set number of rays (can be an array of rays)
-N_par_workers = 6;
+N_rays = [1e5,5e5,5e6,10e6];%,5*10^6]; % Set number of rays (can be an array of rays)
+N_par_workers = 8;
 
 max_itr = 200; % Maximum number of iterations we allow
-tau_L = [0.1,0.5,1,2,10];
+tau_L = [0.01,0.1,1,2,10]; % Available values, [0.01,0.1,1,2,10]
 
 % Temperature values are arbitrary.
 T1 = 600; % [K]: Temperature of plate 1 (surface at x = 1) 
@@ -26,7 +26,7 @@ eps1 = 1; % emissivity of plate 1;
 eps2 = 1; % emissivity of plate 2;
 T_i = ((T1^4+T2^4)/2)^(1/4); % initial guess for PM temperature
 
-vx_scale = [0.1,10,10]; % m/vx
+vx_scale = [0.1,1000,1000]; % m/vx % simulation is faster with large voxels in y/z so there are fewer boundary reflections to resove
 
 visualize = true; % Whether to visualize voxel space at the end
 
@@ -110,9 +110,9 @@ for i = 1:N_tau_L
     fprintf("Solving %d of %d    time = %0.3f \n",i,N_tau_L,toc(outer_tic))
 
     if tau_L(i) == 0.01
-        N_rays(end) = N_temp*10; % Extra variance reduction for optically thin case
+        N_rays(end) = N_temp*8; % Extra variance reduction for optically thin case
     elseif tau_L(i) == 0.1
-        N_rays(end) = N_temp*4;
+        N_rays(end) = N_temp*2;
     else
         N_rays(end) = N_temp;
     end
@@ -161,4 +161,9 @@ for i = 1:N_tau_L
     text(x_ann(i),y_ann(i),tau_L_labels(i));
 end
 
+for i = 1:N_tau_L
+    nondim_power_exact_interp = interp1(x_vals_nd_exact,nondim_power_exact{i},nondim_x);
+    max_error(i) = max((Phi_1D{i}(:)-nondim_power_exact_interp(:))./(nondim_power_exact_interp(:)));
+end
+fprintf("Max emissive power error: %0.3f%%\n",max(max_error)*100)
 fontsize(f,'increase');
