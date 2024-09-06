@@ -1,5 +1,6 @@
+% ©2024 ETH Zurich, Charles Wetaski, Sebastian Sas Brunser, Emiliano Casati
 %   AUTHOR: Sebastian Sas-Brunser, Charles Wetaski
-%   LAST CHECKED: 2024-06-07 (Charles Wetaski)
+%   LAST CHECKED: 2024-09-06 (Charles Wetaski)
 
 function n = getNormalVector(P,VS_logical,ns,Vxyz)
     % GETNORMALVECTOR Returns a normal vector of the specified opaque surface voxel
@@ -20,7 +21,7 @@ function n = getNormalVector(P,VS_logical,ns,Vxyz)
     [sz_x,sz_y,sz_z] = size(VS_logical);
     size_VS = [sz_x,sz_y,sz_z];
 
-    if length(P) == 1 %% assume encoded as linear indices
+    if isscalar(P) %% assume encoded as linear indices
         [Px,Py,Pz] = ind2sub(size_VS,P);
         P = [Px,Py,Pz]; % replace P with subscripts
     end
@@ -99,4 +100,7 @@ function n = getNormalVector(P,VS_logical,ns,Vxyz)
     n(size_VS == 1) = 0; % if 2D voxel space
 
     n=n/norm(n); % normalize vector
+    if any(isnan(n))
+        warning("getNormalVector: Nan vector");
+    end
 end %function
