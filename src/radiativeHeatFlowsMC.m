@@ -1,5 +1,6 @@
+% ©2024 ETH Zurich, Charles Wetaski, Sebastian Sas Brunser, Emiliano Casati
 %   AUTHOR: Charles Wetaski
-%   LAST CHECKED: 2024-08-25 (Charles Wetaski)
+%   LAST CHECKED: 2024-09-06 (Charles Wetaski)
 %% TODO: Implement smooth_bool as a varargin argument in case you do not want to smooth surface radiation
 %% TODO: Implement better safety checks to prevent error being thrown in ray allocation where some bands have very low power
 function [VS_dQ, VS_Q_emit_no_self,VS_Q_self_absorb] = radiativeHeatFlowsMC(N_rays,VS_T,voxel_spaces,varargin)
