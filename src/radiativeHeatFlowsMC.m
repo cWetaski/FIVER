@@ -1,7 +1,8 @@
 %   AUTHOR: Charles Wetaski
-%   LAST CHECKED: 2024-06-07 (Charles Wetaski)
-
-function [VS_dQ, VS_Q_emit_no_self,VS_self_absorb] = radiativeHeatFlowsMC(N_rays,VS_T,voxel_spaces,varargin)
+%   LAST CHECKED: 2024-08-25 (Charles Wetaski)
+%% TODO: Implement smooth_bool as a varargin argument in case you do not want to smooth surface radiation
+%% TODO: Implement better safety checks to prevent error being thrown in ray allocation where some bands have very low power
+function [VS_dQ, VS_Q_emit_no_self,VS_Q_self_absorb] = radiativeHeatFlowsMC(N_rays,VS_T,voxel_spaces,varargin)
     % RADIATIVEHEATFLOWS Calculates the radiative heat flows of each voxel using monte carlo ray tracing.
     %   N_rays are generated based on the temperature field and voxel_spaces properties. The rays are traced
     %   until absorption or exiting the voxel space.
@@ -30,6 +31,10 @@ function [VS_dQ, VS_Q_emit_no_self,VS_self_absorb] = radiativeHeatFlowsMC(N_rays
     default_spectral_band_edges = []; % Array of spectral band boundaries.
     default_output_mode = 'concise';
     valid_output_modes = {'quiet','concise','verbose'};
+
+    if any(VS_T(:)<0)
+        error("Temperature field cannot contain negative values")
+    end
 
         %% Parsing Varargin
     parser = inputParser;
@@ -78,8 +83,8 @@ function [VS_dQ, VS_Q_emit_no_self,VS_self_absorb] = radiativeHeatFlowsMC(N_rays
         if isempty(spectral_band_edges) % No need to compute spectral bands, just use n^2*sigma*T^4
             % Do not use logical indexing since in my tests it was slower to logically index 3-4 large matrices than
             % just multiplying them all as is.
-            VS_Q_emit_surf_band = sigma*VS_surf_areas.*VS_opaq_eps.*VS_nn.*VS_T.^4; % (3D double) [W]: emissive power from each surface voxel within band
-            VS_Q_emit_PM_band = 4*sigma*prod(vx_scale)*VS_PM_kappa.*VS_nn.*VS_T.^4; % (3D double) [W]: emissive power from each PM voxel within band (Modest eq 10.54)
+            VS_Q_emit_surf_band = sigma*VS_surf_areas.*VS_opaq_eps.*VS_nn.^2.*VS_T.^4; % (3D double) [W]: emissive power from each surface voxel within band
+            VS_Q_emit_PM_band = 4*sigma*prod(vx_scale)*VS_PM_kappa.*VS_nn.^2.*VS_T.^4; % (3D double) [W]: emissive power from each PM voxel within band (Modest eq 10.54)
         else    
             % Get lower and upper wavelength of each band
             lb = spectral_band_edges(n);
@@ -87,10 +92,10 @@ function [VS_dQ, VS_Q_emit_no_self,VS_self_absorb] = radiativeHeatFlowsMC(N_rays
             % Compute Powers (use logical indexing to reduce amount of computations for SpectralBandPower!)
             VS_Q_emit_surf_band = zeros(size_VS);
             VS_surfaces = logical(VS_surf_areas);
-            VS_Q_emit_surf_band(VS_surfaces) = VS_surf_areas(VS_surfaces).*VS_opaq_eps(VS_surfaces).*spectralBandPower(lb,ub,VS_T(VS_surfaces),VS_nn(VS_surfaces)); % (3D double) [W]: emissive power from each surface voxel within band according to Planck's law
+            VS_Q_emit_surf_band(VS_surfaces) = VS_nn(VS_surfaces).^2.*VS_surf_areas(VS_surfaces).*VS_opaq_eps(VS_surfaces).*spectralBandPower(lb,ub,VS_T(VS_surfaces)); % (3D double) [W]: emissive power from each surface voxel within band according to Planck's law
             VS_Q_emit_PM_band = zeros(size_VS);
             VS_PM = logical(VS_PM_kappa);
-            VS_Q_emit_PM_band(VS_PM) = 4*prod(vx_scale)*VS_PM_kappa(VS_PM).*spectralBandPower(lb,ub,VS_T(VS_PM),VS_nn(VS_PM)); % (3D double) [W]: emissive power from each PM voxel within band (Modest eq 10.54)
+            VS_Q_emit_PM_band(VS_PM) = VS_nn(VS_PM).^2.*4.*prod(vx_scale).*VS_PM_kappa(VS_PM).*spectralBandPower(lb,ub,VS_T(VS_PM)); % (3D double) [W]: emissive power from each PM voxel within band (Modest eq 10.54)
         end
 
         Q_emit_surf_tot_band = sum(VS_Q_emit_surf_band,'all'); % (1D double) [W]: % Total emissive power from surface voxels
@@ -241,7 +246,7 @@ function [VS_dQ, VS_Q_emit_no_self,VS_self_absorb] = radiativeHeatFlowsMC(N_rays
                 end
                 [rays_flux_pos_cur,rays_flux_dir_cur] = fluxes{ii}.GenerateRays(N_rays_flux(ii));
                 inds_pos_flux = (min(floor(rays_flux_pos_cur)+1,size_VS));
-                rays_pos_lin = inds_pos_flux(:,1) + (inds_pos_flux(:,2)-1)*size_VS(1) + (inds_pos_flux(:,3)-1)*size_VS(1)*size_VS(2);
+                rays_pos_lin = inds_pos_flux(:,1) + (inds_pos_flux(:,2)-1)*size_VS(1) + (inds_pos_flux(:,3)-1)*size_VS(1)*size_VS(2); % Sub2ind, but faster
                 absorbed_rays_rows = VS_opaq(rays_pos_lin); % True for rays which are generated within an opaque voxel
                 absorption_flux_rays = [absorption_flux_rays;inds_pos_flux(absorbed_rays_rows,:)]; %#ok<AGROW>
                 rays_flux_pos = [rays_flux_pos;rays_flux_pos_cur(~absorbed_rays_rows,:)]; %#ok<AGROW> % Rather than storing as cell and using cell2mat, we just grow it since we expect the number of fluxes to usually be small
@@ -256,9 +261,9 @@ function [VS_dQ, VS_Q_emit_no_self,VS_self_absorb] = radiativeHeatFlowsMC(N_rays
         [absorption_pos_cur,events] = traverseRays(rays_pos,rays_dir,VS_opaq,VS_opaq_eps,VS_surf_norms,VS_PM_kappa,VS_nn,reflective_BCs,vx_scale,size_VS);
         ray_tracing_time(n) = toc;
         self_absorption_pos{n} = absorption_pos_cur(events(1:N_rays_vx_band(n))==4,:); % Self absorptions only considered if the ray is emitted from a voxel, not if emitted from an Flux object
-        absorption_pos_PM{n} = [absorption_pos_cur((events==2),:);absorption_pos_cur((N_rays_vx_band(n)+1:end)==4,:);absorption_flux_rays];
+        absorption_pos_PM{n} = [absorption_pos_cur((events==2),:);absorption_pos_cur(events(N_rays_vx_band(n)+1:end)==4,:);absorption_flux_rays]; % Self absorptions when emitted from a Flux object are considered regular PM absorptions (i.e., the Flux is embedded in the medium)
         absorption_pos_surf{n} = [absorption_pos_cur((events==3),:)];
-       
+        
     end % Iterating over spectral bands
     absorption_pos_PM = cell2mat(absorption_pos_PM);
     absorption_pos_surf = cell2mat(absorption_pos_surf);
@@ -293,9 +298,11 @@ function [VS_dQ, VS_Q_emit_no_self,VS_self_absorb] = radiativeHeatFlowsMC(N_rays
     VS_self_absorb = reshape(self_absorption_counts,size_VS);
     VS_absorb_PM = reshape(absorption_counts_PM,size_VS);
     VS_absorb_surf = reshape(absorption_counts_surf,size_VS);
-
-    %% Apply a smoothing filter to surface absorptions which ignores non-surface voxels and conserves overall absorption counts
+    
+    %% EXPERIMENTAL: Apply a smoothing filter to surface absorptions which ignores non-surface voxels and conserves overall absorption counts
     % https://stackoverflow.com/a/61481246/21592632 - filter_nan_gaussian_conserving2 (but I'm not using a gaussian kernel)
+    smooth_bool = false;
+    if smooth_bool
     ns = voxel_spaces{1}.ns_normals;
     ns = 1;
     base_vals = -ns:ns;
@@ -308,54 +315,20 @@ function [VS_dQ, VS_Q_emit_no_self,VS_self_absorb] = radiativeHeatFlowsMC(N_rays
     loss(padarray(mask,[ns,ns,ns],"replicate",'both'))=1;
     loss = convn(loss,kernel,'valid');
     
-    %VS_absorb_surf_smooth1 = VS_absorb_surf;
-    %VS_absorb_surf_smooth1(mask) = 0;
-    %VS_absorb_surf_smooth1 = convn(VS_absorb_surf_smooth1,kernel,'same');
-    %VS_absorb_surf_smooth1(mask) = 0;
-    %VS_absorb_surf_smooth1 = VS_absorb_surf_smooth1 + loss.*VS_absorb_surf;
-    %VS_absorb_surf_smooth2 = padarray(VS_absorb_surf,[1,1,1],"replicate","both");
-    VS_absorb_surf_smooth2 = VS_absorb_surf./(1-loss);
-    VS_absorb_surf_smooth2(mask) =0;
-    VS_absorb_surf_smooth2 = padarray(VS_absorb_surf_smooth2,[1,1,1],"replicate","both");
-    VS_absorb_surf_smooth2 = convn(VS_absorb_surf_smooth2,kernel,'valid');
+    VS_absorb_surf_smooth = VS_absorb_surf./(1-loss);
+    VS_absorb_surf_smooth(mask) =0;
+    VS_absorb_surf_smooth = padarray(VS_absorb_surf_smooth,[1,1,1],"replicate","both");
+    VS_absorb_surf_smooth = convn(VS_absorb_surf_smooth,kernel,'valid');
 
-    VS_absorb_surf_smooth2(mask) = 0;
-
-    %% Calculate Delta_Q
-    % Net number of absorbed rays for each voxel * power per ray = Power out of each voxel
-    VS_dQ = (VS_absorb_PM+VS_absorb_surf_smooth2-VS_emit)*power_per_ray; 
-    %VS_dQ_old = (VS_absorb_PM+VS_absorb_surf-VS_emit)*power_per_ray;
-    if false % Debugging!
-        round(sum(VS_absorb_surf_smooth2,'all')-sum(VS_absorb_surf,'all')) % Should be 0!
-        figure("Position",[500,50,800,700])
-        tiledlayout(2,2,"TileSpacing","tight","Padding","compact")
-        maxval = max(VS_dQ_old(:,:,1),[],'all');
-        minval = min(VS_dQ_old(:,:,1),[],'all');
-        maxabsval = max(abs(maxval),abs(minval));
-        crange = [-1,1]*maxabsval;
-        nexttile()
-        imagesc(VS_dQ_old(:,:,1))
-        colorbar();
-        title("Not smoothed, layer 1")
-        clim(crange)
-        nexttile();
-        imagesc(VS_dQ_old(:,:,end-1));
-        colorbar();
-        clim(crange)
-        title("Not smoothed, layer end-1");
-        nexttile();
-        imagesc(VS_dQ(:,:,1))
-        title("Smoothed, layer 1")
-        colorbar();
-        %clim(crange);
-        nexttile();
-        imagesc(VS_dQ(:,:,end))
-        title("Smoothed, layer end-1")
-        colorbar();
-        %clim(crange)
+    VS_absorb_surf_smooth(mask) = 0;
+    VS_dQ = (VS_absorb_PM+VS_absorb_surf_smooth-VS_emit)*power_per_ray; 
+    else
+        VS_dQ = (VS_absorb_PM+VS_absorb_surf-VS_emit)*power_per_ray;
     end
-    
-    VS_Q_emit_no_self = VS_Q_emit - VS_self_absorb*power_per_ray; % Remove self-absorptions from emissive power -> this is relavent for coupling with conduction 
+    %% Calculate Delta_Q
+    % Net number of absorbed rays for each voxel * power per ray = Power out of each voxel   
+    VS_Q_self_absorb = VS_self_absorb*power_per_ray;
+    VS_Q_emit_no_self = VS_Q_emit - VS_Q_self_absorb; % Remove self-absorptions from emissive power -> relevant if we want to lienarize radiation term
     
     total_time = toc(outer_timer);
     if any(contains({'concise','verbose'},output_mode))
