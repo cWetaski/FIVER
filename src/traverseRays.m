@@ -1,5 +1,5 @@
 %   AUTHOR: Charles Wetaski
-%   LAST CHECKED: 2024-06-07
+%   LAST CHECKED: 2024-09-06
 
 function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start,VS_opaq,VS_opaq_eps,VS_surf_norms,VS_PM_kappa,VS_nn,reflective_BCs,vx_scale,size_VS)
     % TRAVERSERAYS - Traces a set of rays from starting position and direction through voxel space until absorption or
@@ -30,7 +30,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
     %       4 == medium self-absorption: Absorbed by medium from which it was emitted without ever exiting
     %% Pre-preamble
 
-    max_loops = 100; % Set maximum number of loops (each iteration of the outer loop indicates a new reflection or refraction event)
+    max_loops = 50; % Set maximum number of loops (each iteration of the outer loop indicates a new reflection or refraction event)
     N_rays = size(rays_pos_start,1);
     rays_end_pos = zeros(N_rays,3);
     rays_events = zeros(N_rays,1);
@@ -41,11 +41,6 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
     %else
     %    delete(gcp) % No parallel!
     end
-    if strcmp(filesep,'/') % If linux system
-    [~, mem_usage] = system('cat /proc/$(pgrep MATLAB)/status | grep VmSize');
-    disp(mem_usage)
-    end
-    
     parfor nn_ray = 1:N_rays
         %% Initialize temporary variables to avoid warnings:
         XYZ = 0; end_pos = [-1,-1,-1]; event = 0; tau_ray = 0; tau_acc = 0; dist_frac_b = 0; dist_frac_c = 0; last_inc = 0; nn2 = 0; i_min = 0;
@@ -653,7 +648,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
                 % Increment pb and pc
                 pb = pb + Db;
                 pc = pc + Dc;
-            end % Traversal loop 1: If exited, the ray has collided with an opaque surface or reached a medium interface
+            end % Traversal loop 1: If exited, the ray has collided with an opaque surface, reached a medium interface, or exited the domain
             if rtrn
                 break
             end
@@ -702,7 +697,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
                 end
             else % Not a surface collision
                 %% Resolve Medium Interface or Edge Case of opaque non-surface
-                % Initialize bool
+                % Initianlize bool
                 specular_reflection_bool = false;
         
                 % Figure out ray dir at collision (apply correction) since sign may have changed due to specular reflections on boundaries
@@ -716,72 +711,96 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
                 % Get position before increment (we use a new variable since we still need to know what XYZ is
                 XYZ_prev = XYZ;
                 XYZ_prev(last_inc) = XYZ_prev(last_inc) - sgn(last_inc);
-                
-                % Determine exact position of interface using values of p2 and p3 and last_inc
-                if sgn(last_inc) == 1
-                    ray_pos(last_inc) = XYZ_prev(last_inc);
-                else % Sign is -1
-                    ray_pos(last_inc) = XYZ_prev(last_inc) - 1;
-                end
-        
-                if last_inc == ia % If driving axis incremented last pb and pc tell us the distance from voxel boundary
-                    if sgn(ib) == 1
-                        ray_pos(ib) = XYZ_prev(ib) + pb;
-                    else % Sign is -1
-                        ray_pos(ib) = XYZ_prev(ib) - pb - 1;
-                    end
-                    
-                    if sgn(ic) == 1
-                        ray_pos(ic) = XYZ_prev(ic) + pc;
-                    else
-                        ray_pos(ic) = XYZ_prev(ic) - pc - 1;
-                    end
-                elseif last_inc == ib % pb > 0 -> determine coordinates with dist_frac_b and pc < c
-                    if sgn(ia) == 1
-                        ray_pos(ia) = XYZ_prev(ia) - dist_frac_b;
-                    else
-                        ray_pos(ia) = XYZ_prev(ia) + dist_frac_b - 1;
-                    end
-                    
-                    if sgn(ic) == 1
-                        ray_pos(ic) = XYZ_prev(ic) + pc - dist_frac_b*Dc; % pc gives position when crossing a-axis and then move backward by dist_frac_b*Dc to get position crossing b axis
-                    else
-                        ray_pos(ic) = XYZ_prev(ic) - pc + dist_frac_b*Dc - 1;
-                    end
-                else % last_inc == ic -> determine coordinates with dist_frac_c and pb < 0
-                    if sgn(ia) == 1
-                        ray_pos(ia) = XYZ_prev(ia) - dist_frac_c;
-                    else
-                        ray_pos(ia) = XYZ_prev(ia) + dist_frac_c - 1;
-                    end
-        
-                    if sgn(ib) == 1
-                        ray_pos(ib) = XYZ_prev(ib) + pb - dist_frac_c*Db;
-                    else
-                        ray_pos(ib) = XYZ_prev(ib) - pb + dist_frac_c*Db - 1;
-                    end
-                end
-                % With ray position determined, we can determine the new ray direction after the medium collision
-                % Get surf_norm
+
                 surf_norm = VS_surf_norms{XYZ_prev(1),XYZ_prev(2),XYZ_prev(3)};
-                if interior_collision_bool % Adjust position so that it does not enter the interior voxel
+                if interior_collision_bool % Just reemit from previous voxel
+                    % This is the most problematic part of the code, in general
+                    % If the domain is not nice, we can get infinite loops of reemisions (up to the maximum loop_count)
+                    % These stuck rays take up a lot of computation time and don't benefit the solution
                     if dot(surf_norm,ray_dir) < 0
                         end_pos = XYZ_prev;
                         event = 3;
                         break
                     end
-                    [~, ind] = max(abs(surf_norm));
-                    XYZ = XYZ_prev;
-                    XYZ(ind) = XYZ(ind)+sign(surf_norm(ind));
-                    if VS_opaq(XYZ(1),XYZ(2),XYZ(3)) && isempty(VS_surf_norms(XYZ(1),XYZ(2),XYZ(3)))
-                        disp("TRAPPED")
+                    % Generate new ray direction from previous XYZ_prev
+                    dist = 1/2*1/max(abs(surf_norm));
+                    XYZ_next = floor(XYZ_prev-0.5 + (dist+1e-10)*surf_norm)+1;
+                    if any(XYZ_next == 0) || any(XYZ_next > size_VS)
+                        event = 1;
+                        end_pos = XYZ_next;
+                        break;
+                    end
+                    if VS_opaq(XYZ_next(1),XYZ_next(2),XYZ_next(3)) && isempty(VS_surf_norms(XYZ_next(1),XYZ_next(2),XYZ_next(3)))
+                        disp("Ray is trapped!")
+                        event = 3;
                         end_pos = XYZ_prev;
                         break;
                     end
-                    ray_pos(last_inc) = ray_pos(last_inc)-sign(ray_dir(last_inc))*0.1; % move away from boundary by 0.1
-                    ray_pos(ind) = XYZ_prev(ind)-0.5+sign(surf_norm(ind))*(0.5-1e-10); % move along max surf norm component to just before the voxel boundary
-                
+                    ray_pos = (XYZ_prev - 0.5)+ (dist-1e-10)*surf_norm;
+                    
+                    sin_theta = sqrt(rand);                 % Modest Eq. 8.42
+                    phi=2*pi*rand;                          % Modest Eq. 8.41
+                    dir_local = [sin_theta.*cos(phi), sin_theta.*sin(phi), sqrt(1-sin_theta.^2)]; 
+                    if abs(surf_norm(3) - 1) < 10^(-6) % already [0 0 1]
+                        ray_dir = dir_local;
+                    elseif abs(surf_norm(3) + 1) < 10^(-6) % already [0 0 -1]
+                        ray_dir = [-dir_local(1),dir_local(2),-dir_local(3)]; % rotate 180 degrees about y axis
+            
+                    else
+                        nxy = sqrt(1-surf_norm(3)^2);   % (=== sin(theta) of normal vector)
+                                                % Get new direction (matrix is equivalent to R' from TransformCoord.m)
+                        ray_dir = dir_local*[ surf_norm(3)*surf_norm(1)/nxy, surf_norm(3)*surf_norm(2)/nxy,-nxy;...
+                                             -surf_norm(2)/nxy,              surf_norm(1)/nxy,              0;...
+                                              surf_norm(1),                  surf_norm(2),                  surf_norm(3)];
+                    end
                 else % Medium refraction
+                
+                    % Determine exact position of interface using values of p2 and p3 and last_inc
+                    if sgn(last_inc) == 1
+                        ray_pos(last_inc) = XYZ_prev(last_inc);
+                    else % Sign is -1
+                        ray_pos(last_inc) = XYZ_prev(last_inc) - 1;
+                    end
+            
+                    if last_inc == ia % If driving axis incremented last pb and pc tell us the distance from voxel boundary
+                        if sgn(ib) == 1
+                            ray_pos(ib) = XYZ_prev(ib) + pb;
+                        else % Sign is -1
+                            ray_pos(ib) = XYZ_prev(ib) - pb - 1;
+                        end
+                        
+                        if sgn(ic) == 1
+                            ray_pos(ic) = XYZ_prev(ic) + pc;
+                        else
+                            ray_pos(ic) = XYZ_prev(ic) - pc - 1;
+                        end
+                    elseif last_inc == ib % pb > 0 -> determine coordinates with dist_frac_b and pc < c
+                        if sgn(ia) == 1
+                            ray_pos(ia) = XYZ_prev(ia) - dist_frac_b;
+                        else
+                            ray_pos(ia) = XYZ_prev(ia) + dist_frac_b - 1;
+                        end
+                        
+                        if sgn(ic) == 1
+                            ray_pos(ic) = XYZ_prev(ic) + pc - dist_frac_b*Dc; % pc gives position when crossing a-axis and then move backward by dist_frac_b*Dc to get position crossing b axis
+                        else
+                            ray_pos(ic) = XYZ_prev(ic) - pc + dist_frac_b*Dc - 1;
+                        end
+                    else % last_inc == ic -> determine coordinates with dist_frac_c and pb < 0
+                        if sgn(ia) == 1
+                            ray_pos(ia) = XYZ_prev(ia) - dist_frac_c;
+                        else
+                            ray_pos(ia) = XYZ_prev(ia) + dist_frac_c - 1;
+                        end
+            
+                        if sgn(ib) == 1
+                            ray_pos(ib) = XYZ_prev(ib) + pb - dist_frac_c*Db;
+                        else
+                            ray_pos(ib) = XYZ_prev(ib) - pb + dist_frac_c*Db - 1;
+                        end
+                    end
+                    % With ray position determined, we can determine the new ray direction after the medium collision
+                    
                     if isempty(surf_norm) % We will just use the voxel boundary as the plane (this should never occur, though)
                         surf_norm = zeros(1,3);
                         surf_norm(last_inc) = sgn(last_inc); % Points in direction such that dot(surf_norm,ray_dir)>0
@@ -841,8 +860,8 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
                             sgn = sgn_new;
                         end
                     end
-                    if adjust_pos
-                        
+                    if adjust_pos % Edge case has occurred
+                        % We want to avoid crossing the boundary
                         dist_to_clear = (0.5 - (sgn.*(rem(ray_pos,1)-0.5))).*vx_scale; % Get distance to next boundary in direction of ray travel (note this is the opposite of xs calculated in Premable pt 2)
                         time_to_clear = dist_to_clear./abs(ray_dir); % "time" because direction components are essentially velocities
                         i_rem = [1,2,3];
@@ -854,17 +873,14 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
                                 t_min = time_to_clear(ii);
                             end
                         end
-                        ray_pos(last_inc) = ray_pos(last_inc) - 0.1*sgn(last_inc); % Move ray a little bit backward from boundary
+                        ray_pos(last_inc) = ray_pos(last_inc) - 0.2*sgn(last_inc); % Move ray a little bit backward from boundary
                         ray_pos(i_min) = ray_pos(i_min)+dist_to_clear(i_min)/vx_scale(i_min)*(1-1e-10); % Move ray so that the next boundary it crosses will be i_min
                     end                
                 end % end: interior collision bool
-                
-                ray_pos = ray_pos + sgn*eps.*XYZ; % Give small bump to get off boundary (scale bump with position for floating point reasons (floor(1-eps) = 0, but floor(10-eps) = 10)
-
             end   % end surface collision bool  
         %% Go back to Preamble part 2
         end % Preamble loop
-        if loop_count == max_loops % Resolve stuck rays
+        if loop_count == max_loops && event ~= 1 % Resolve stuck rays (as best we can!)
             if VS_opaq(XYZ(1),XYZ(2),XYZ(3)) % Check current voxel
                 if VS_opaq_eps(XYZ(1),XYZ(2),XYZ(3))>0
                     event = 3;
@@ -894,8 +910,5 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
         end
         rays_end_pos(nn_ray,:) = end_pos;
         rays_events(nn_ray) = event;
-        if event == 0
-            debug = 0
-        end
     end % End parfor
 end % End function
