@@ -1,5 +1,6 @@
+% ©2024 ETH Zurich, Charles Wetaski, Sebastian Sas Brunser, Emiliano Casati
 %   AUTHOR: Charles Wetaski
-%   LAST CHECKED: 2024-06-07
+%   LAST CHECKED: 2024-09-06
 
 classdef ExternalFlux < Flux
     %EXTERNALFLUX Defines an external flux which is applied to a voxel space
@@ -16,7 +17,7 @@ classdef ExternalFlux < Flux
     
     methods
         function obj = ExternalFlux(power,ray_gen_function,boundary,size_VS)
-            %EXTERNALFLUX Constructs an ExternalFlux Object and assigns it to the VoxelSpace
+            %EXTERNALFLUX Constructs an ExternalFlux Object
             obj.power = power;
             obj.ray_gen_function = ray_gen_function;
             obj.boundary = boundary;
@@ -33,7 +34,8 @@ classdef ExternalFlux < Flux
                 disp('Warning: External flux ray gen function not defined with z-component of position == zero')
             end
             if any(rays(:,6)<0)
-                disp('Warning: External flux ray gen function not defined with z-component of direction >= zero')
+                disp(['Warning: External flu' ...
+                    'x ray gen function not defined with z-component of direction >= zero'])
             end
 
             rays_pos = rays(:,1:2); % Take only x and y position components
