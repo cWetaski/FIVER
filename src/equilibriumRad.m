@@ -1,5 +1,7 @@
+% ©2024 ETH Zurich, Charles Wetaski, Sebastian Sas Brunser, Emiliano Casati
 %   AUTHOR: Charles Wetaski
-%   LAST CHECKED: 2024-06-07
+%   LAST CHECKED: 2024-09-06
+%   TODO: Implement reemission equilibrium method
 
 function [VS_T_new, VS_dQ, VS_dT, count_itr, total_rays] = equilibriumRad(N_rays,VS_T,VS_T_fixed,voxel_space,varargin)
     % equilibriumRad Iteratively finds the equilibrium temperature field for a voxel space, radiation only
@@ -40,7 +42,7 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr, total_rays] = equilibriumRad(N_rays
     default_max_itrs = 100; % Maximum number of iterations per ray level
     default_final_level_itrs = 3; % Number of iterations at the final level (only used if N_rays has more than 1 value)
     default_N_prev = 5; % Number of previous iterations back to compare against for automatic stopping criteria
-    default_C_converge = 1.05; % Scaling constant for convergence critera
+    default_C_converge = 1; % Scaling constant for convergence critera
     default_relax = 1; % Under/overrelaxation constant (i.e. <1 is underrelax and >1 is overrelax)
     default_spectral_band_edges = []; % Array of spectral band boundaries.
     default_output_mode = 'concise';
@@ -100,7 +102,7 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr, total_rays] = equilibriumRad(N_rays
     N_levels = length(N_rays); % Number of ray levels (assumed to be increasing)
     total_rays = 0;
     cur_level = 1; % Current ray level
-
+    
     while count_final_level <= final_level_itrs
         total_rays = total_rays + N_rays(cur_level); % total ray counter
         count_itr = count_itr + 1;
@@ -145,18 +147,21 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr, total_rays] = equilibriumRad(N_rays
         %if C_relax ~= 1
         %    VS_T_new = VS_T_prev + C_relax*(VS_T_new-VS_T_prev);
         %end
-        VS_dT = VS_T_new - VS_T_prev; % Difference from previous temperature field
+        VS_dT = VS_T_new -VS_T_prev;
 
         % Adaptive stopping criteria
         % Premise:  Temperature changes at equilibrium will be only due to stochastic process, therefore residuals from
         %           the previous iteration will be of same order as residuals from many iterations ago
-
+        % This doesn't always work great, sometimes the solution oscillates and so R_sq_N_dT is always larger than VS_dT
+        % In this case, set C_onverge larger or don't avoid adapative stopping by having a single ray level 
+        % and set the max number of iterations as desired.
         if count_level > N_prev % The first N_prev iterations at a level, we just store the temperature fields
-            R_sq_dT = sum(VS_dT.^2,'all'); % Sum of square residual from 0
-
             VS_N_dT = VS_T_new - VS_T_old{count_mod}; % Temperature field difference from N_prev iterations ago
             R_sq_N_dT = sum(VS_N_dT.^2,'all'); % Sum of square residual from 0
+            R_sq_dT = sum(VS_dT.^2,'all');
             R_sq_ratio = R_sq_N_dT/R_sq_dT; % Ratio of square residuals.
+
+
             if strcmp(output_mode,'verbose')
                 fprintf("Ratio of square residuals: %0.3f \n",R_sq_ratio)
             end
