@@ -1,3 +1,4 @@
+% ©2024 ETH Zurich, Charles Wetaski, Sebastian Sas Brunser, Emiliano Casati
 %   AUTHOR: Charles Wetaski
 %   LAST CHECKED: 2024-09-06
 
