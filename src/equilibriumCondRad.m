@@ -1,5 +1,7 @@
+% ©2024 ETH Zurich, Charles Wetaski, Sebastian Sas Brunser, Emiliano Casati
 %   AUTHOR: Charles Wetaski
 %   LAST CHECKED: 2024-06-07
+% TODO: add back transient term and/or radiation linearization options
 
 function [VS_T_new, VS_dQ, VS_dT, count_itr] = equilibriumCondRad(N_rays,VS_T,VS_T_fixed,voxel_spaces,varargin)
     % CONDRADEUILIBRIUM Solves the transient coupled heat transfer problem with conduction and radiation until equilibrium
@@ -179,12 +181,10 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr] = equilibriumCondRad(N_rays,VS_T,VS
         %           the previous iteration will be of same order as residuals from many iterations ago
 
         if count_level > N_prev % The first N_prev iterations at a level, we just store the temperature fields
-            count_mod_N_minus1 = mod(count_level-1,N_prev)+1; % N_prev-1 iterations ago
-            VS_N_minus1_dT = VS_T_new - VS_T_prev;%VS_T_old{count_mod_N_minus1};
             VS_N_dT = VS_T_new - VS_T_old{count_mod}; % Temperature field difference from N_prev iterations ago
             R_sq_N_dT = sum(VS_N_dT.^2,'all'); % Sum of square residual from 0
-            R_sq_N_minus1_dT = sum(VS_N_minus1_dT.^2,'all');
-            R_sq_ratio = R_sq_N_dT/R_sq_N_minus1_dT; % Ratio of square residuals.          
+            R_sq_dT = sum(VS_dT.^2,'all');
+            R_sq_ratio = R_sq_N_dT/R_sq_dT; % Ratio of square residuals.          
             
             if strcmp(output_mode,'verbose')
                 fprintf("Ratio of square residuals: %0.3f \n",R_sq_ratio)
