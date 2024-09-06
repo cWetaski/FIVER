@@ -1,7 +1,8 @@
+% ©2024 ETH Zurich, Charles Wetaski, Sebastian Sas Brunser, Emiliano Casati
 %   AUTHOR: Charles Wetaski
-%   LAST CHECKED: 2024-06-07
+%   LAST CHECKED: 2024-09-06
 % TODO: convert long list of argument to varargin (should have use_internal_itr (default true), spectral_band_edges (default []), and verbose (default concise))
-
+% TODO: maybe add back linearized radiation as an option
 function VS_T_new = transientCondRad(N_rays,VS_T,VS_T_fixed,voxel_spaces,N_time_steps,time_step,use_internal_itr,spectral_band_edges)
     % CONDRADTRANSIENT Solves the transient coupled heat transfer problem with conduction and radiation
     % Inputs:
@@ -30,6 +31,7 @@ function VS_T_new = transientCondRad(N_rays,VS_T,VS_T_fixed,voxel_spaces,N_time_
 
     %% Param
     internal_itr_num = 3; % Number of internal iterations if use_internal_itr is true
+    max_rays_batch = 40e6;
     % Can change this setting (eventually make it an argument with varargin along spectral bands!)
 
 
@@ -51,7 +53,10 @@ function VS_T_new = transientCondRad(N_rays,VS_T,VS_T_fixed,voxel_spaces,N_time_
     
     alpha_cell = createCellVariable(thermal_mesh, VS_alpha); % assign the thermal diffusivity to the cells
     alpha_face = harmonicMean(alpha_cell); % calculate harmonic average of the diffusion coef on the cell faces
-    
+    alpha_face.xvalue(isnan(alpha_face.xvalue))=0;% Get rid of nans that arise from adjacent cells having 0 diffusivity!
+    alpha_face.yvalue(isnan(alpha_face.yvalue))=0; 
+    alpha_face.zvalue(isnan(alpha_face.zvalue))=0; 
+
     % Get components of RHS and matrix of coefficients for diffusion and BCs (do not change on iterations)
     M_diff = diffusionTerm(alpha_face); % matrix of coefficients for the diffusion term
     M_diff(isnan(M_diff)) = 0; % Nan Values to 0
@@ -64,7 +69,7 @@ function VS_T_new = transientCondRad(N_rays,VS_T,VS_T_fixed,voxel_spaces,N_time_
     VS_T_prev = VS_T;
     T_prev = createCellVariable(thermal_mesh, VS_T_new,BC); % initial values
     source_const_cell = createCellVariable(thermal_mesh,0); % Initialize source term cell variable
-    source_lin_cell = createCellVariable(thermal_mesh,0);
+
     %% Set up fixed temperatures
     % Pad VS_T_spec so it is the same size as the cell variables (which have ghost cells);
     VS_T_spec_padded = padarray(VS_T_fixed,[1 1 1],0,'both');
@@ -87,25 +92,36 @@ function VS_T_new = transientCondRad(N_rays,VS_T,VS_T_fixed,voxel_spaces,N_time_
         while internal_itr_count < internal_itr_num
             internal_itr_count = internal_itr_count + 1;
             heat_flows_tic = tic;
-            [VS_dQ, VS_Q_emit_prev] = radiativeHeatFlowsMC(N_rays,VS_T_prev,voxel_spaces,"SpectralBandEdges",spectral_band_edges); % (3D Double) [W]: Power in/out of each voxel
+            N_rays_rem = N_rays;
+            VS_dQ = 0;
+            while N_rays_rem > 0 
+                if N_rays_rem >= max_rays_batch % Break rays into batches since tracing more than 20e6 rays at a time is slower overall
+                    N_rays_cur = max_rays_batch;
+                else
+                    N_rays_cur = N_rays_rem;
+                end
+                [VS_dQ_cur] = radiativeHeatFlowsMC(N_rays_cur,VS_T_prev,voxel_spaces,'SpectralBandEdges',spectral_band_edges);
+                VS_dQ = VS_dQ + VS_dQ_cur*N_rays_cur/N_rays;
+               N_rays_rem = N_rays_rem-N_rays_cur;
+            end
             heat_flows_time = toc(heat_flows_tic);
             % Split dQ into a source term of form Y = aT + b; 
-            source_const = (VS_dQ + 4*VS_Q_emit_prev)./(VS_cc.*VS_rho.*prod(vx_scale)); % K/s Divide by voxel element volume to get W/m3 i.e. source term comes from divergence of radiative heat flux
+            source_const = (VS_dQ)./(VS_cc.*VS_rho.*prod(vx_scale)); % K/s Divide by voxel element volume to get W/m3 i.e. source term comes from divergence of radiative heat flux
             source_const = padarray(source_const,[1,1,1],0,'both');
             source_const_cell.value = source_const;
-            source_lin = 4*VS_Q_emit_prev./VS_T_prev./(VS_cc.*VS_rho.*prod(vx_scale)); % K/s
-            source_lin(isnan(source_lin)) = 0;
-            source_lin = padarray(source_lin,[1,1,1],0,'both');
-            source_lin_cell.value = source_lin; % Assign to source cell variable
+            %source_lin = 4*VS_Q_emit_prev./VS_T_prev./(VS_cc.*VS_rho.*prod(vx_scale)); % K/s
+            %source_lin(isnan(source_lin)) = 0;
+            %source_lin = padarray(source_lin,[1,1,1],0,'both');
+            %source_lin_cell.value = source_lin; % Assign to source cell variable
     
             RHS_source_term = constantSourceTerm3D(source_const_cell); % Convert to RHS source term
-            M_source_term = linearSourceTerm3D(source_lin_cell);
+            %M_source_term = linearSourceTerm3D(source_lin_cell);
     
             tic
             
-            [M_trans, RHS_trans] = transientTerm(T_prev, time_step); % Get transient term based on old temperature field. Don't quite understand how this works but it works
+            [M_trans, RHS_trans] = transientTerm(T_prev, time_step);
     
-            M = M_steady + M_trans + M_source_term;
+            M = M_steady + M_trans; %M_source_term;
             RHS = RHS_steady + RHS_trans + RHS_source_term;
             
             % Set fixed temperature values
