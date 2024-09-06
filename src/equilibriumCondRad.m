@@ -78,7 +78,6 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr] = equilibriumCondRad(N_rays,VS_T,VS
     end
  
     %% Unpack relevant params from voxel space
-    N_bands = length(spectral_band_edges)-1;
     size_VS = voxel_spaces{1}.size; 
     vx_scale = voxel_spaces{1}.voxel_scale;
     VS_alpha = voxel_spaces{1}.thermal_conductivity;
@@ -103,8 +102,6 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr] = equilibriumCondRad(N_rays,VS_T,VS
     %% Define cell variables for FVTools solver
     T_prev = createCellVariable(thermal_mesh, VS_T_prev,BC); % initial values
     source_const_cell = createCellVariable(thermal_mesh,0);
-    source_lin_cell = createCellVariable(thermal_mesh,0); % Initialize source term cell variable
-    
 
     %% Set up fixed temperatures
     % Pad VS_T_spec so it is the same size as the cell variables (which have ghost cells);
@@ -142,29 +139,22 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr] = equilibriumCondRad(N_rays,VS_T,VS
     cur_level = 1; % Current ray level
     
     %% loop
-    while count_final_level < final_level_itrs
+    while count_final_level <= final_level_itrs
         count_level = count_level + 1;
         if count_final_level > 0
             count_final_level = count_final_level + 1;
         end
         count_mod = mod(count_level-1,N_prev)+1; % Get iteration mod (1,2,...,N_prev,1,2,...,N_prev,1)
-        [VS_dQ, VS_Q_emit_no_self] = radiativeHeatFlowsMC(N_rays(cur_level),VS_T_prev,voxel_spaces,"SpectralBandEdges",spectral_band_edges,"OutputMode",output_mode); % (3D Double) [W/vx^3]: Radiative flux divergence
+        VS_dQ = radiativeHeatFlowsMC(N_rays(cur_level),VS_T_prev,voxel_spaces,"SpectralBandEdges",spectral_band_edges,"OutputMode",output_mode); % (3D Double) [W/vx^3]: Radiative flux divergence
         
         VS_dQ(VS_T_fixed) = 0;
         
         % Split dQ into a source term of form Y = aT + b; 
-        source_const = (VS_dQ + 4*VS_Q_emit_no_self)/prod(vx_scale); % Divide by voxel element volume to get W/m3 i.e. source term comes from divergence of radiative heat flux
-        source_const = padarray(source_const,[1,1,1],0,'both');
+        source_const = VS_dQ/prod(vx_scale); % Divide by voxel element volume to get W/m3 i.e. source term comes from divergence of radiative heat flux
+        source_const = padarray(source_const,[1,1,1],0,'both'); % pad for ghost cells
         source_const_cell.value = source_const;
-        source_lin = 4*VS_Q_emit_no_self./VS_T_prev/prod(vx_scale);
-        source_lin(isnan(source_lin)) = 0;
-        source_lin = padarray(source_lin,[1,1,1],0,'both');
-        source_lin_cell.value = source_lin; % Assign to source cell variable
-
         RHS_source_term = constantSourceTerm3D(source_const_cell); % Convert to RHS source term
-        M_source_term = linearSourceTerm3D(source_lin_cell);
-
-        M = M_steady+M_source_term;
+        M = M_steady;
         RHS = RHS_steady+RHS_source_term;
         
         % Set fixed temperature values;
@@ -189,14 +179,12 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr] = equilibriumCondRad(N_rays,VS_T,VS
         %           the previous iteration will be of same order as residuals from many iterations ago
 
         if count_level > N_prev % The first N_prev iterations at a level, we just store the temperature fields
-            
-            R_sq_dT = sum(VS_dT.^2,'all'); % Sum of square residual from 0
-
-            %VS_2_dT = VS_T_new - VS_T_old{mod(count_mod-3,N_prev)+1}; % Difference from 2 iterations ago
+            count_mod_N_minus1 = mod(count_level-1,N_prev)+1; % N_prev-1 iterations ago
+            VS_N_minus1_dT = VS_T_new - VS_T_prev;%VS_T_old{count_mod_N_minus1};
             VS_N_dT = VS_T_new - VS_T_old{count_mod}; % Temperature field difference from N_prev iterations ago
             R_sq_N_dT = sum(VS_N_dT.^2,'all'); % Sum of square residual from 0
-            %R_sq_2_dT = sum(VS_2_dT.^2,'all'); 
-            R_sq_ratio = R_sq_N_dT/R_sq_dT; % Ratio of square residuals.
+            R_sq_N_minus1_dT = sum(VS_N_minus1_dT.^2,'all');
+            R_sq_ratio = R_sq_N_dT/R_sq_N_minus1_dT; % Ratio of square residuals.          
             
             if strcmp(output_mode,'verbose')
                 fprintf("Ratio of square residuals: %0.3f \n",R_sq_ratio)
@@ -208,11 +196,12 @@ function [VS_T_new, VS_dQ, VS_dT, count_itr] = equilibriumCondRad(N_rays,VS_T,VS
                 if cur_level == N_levels
                     count_final_level = 1; % Begin counting in last level until stopping criteria
                 elseif cur_level > N_levels % Edge case for when there is only a single level
-                    count_final_level = final_level_itrs; % Stop immediately (there is no higher level to proceed to)
+                    count_final_level = final_level_itrs+1; % Stop immediately (there is no higher level to proceed to)
                 end
             end
+           
         end
-        % Update temperature fields
+                 % Update temperature fields
         VS_T_prev = VS_T_new;
         VS_T_old{count_mod} = VS_T_new;
     end
