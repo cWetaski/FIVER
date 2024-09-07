@@ -262,9 +262,9 @@ function [VS_dQ, VS_Q_emit_no_self,VS_Q_self_absorb] = radiativeHeatFlowsMC(N_ra
         [absorption_pos_cur,events] = traverseRays(rays_pos,rays_dir,VS_opaq,VS_opaq_eps,VS_surf_norms,VS_PM_kappa,VS_nn,reflective_BCs,vx_scale,size_VS);
         ray_tracing_time(n) = toc;
         self_abs_filter = events==4;
-        self_abs_filter(N_rays_vx_band(n)+1:end) = 1;
+        self_abs_filter(N_rays_vx_band(n)+1:end) = 0;
         PM_filter = events==4;
-        PM_filter(1:N_rays_vx_band(n)) = 1;
+        PM_filter(1:N_rays_vx_band(n)) = 0;
         self_absorption_pos{n} = absorption_pos_cur(self_abs_filter,:); % Self absorptions only considered if the ray is emitted from a voxel, not if emitted from an Flux object
         absorption_pos_PM{n} = [absorption_pos_cur((events==2) | PM_filter,:);absorption_flux_rays]; % Self absorptions when emitted from a Flux object are considered regular PM absorptions (i.e., the Flux is embedded in the medium)
         absorption_pos_surf{n} = [absorption_pos_cur((events==3),:)];
