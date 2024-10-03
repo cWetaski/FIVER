@@ -35,14 +35,13 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
     N_rays = size(rays_pos_start,1);
     rays_end_pos = zeros(N_rays,3);
     rays_events = zeros(N_rays,1);
-
    %% Start parallel pool
     if isempty(gcp('nocreate')) % If there's no parpool already created
         parpool('Threads'); % Threads profile is generally preferred if the code is written in such as way as to allow Threads profile.
     %else
     %    delete(gcp) % No parallel!
     end
-    parfor nn_ray = 1:N_rays
+    for nn_ray = 1:N_rays
         %% Initialize temporary variables to avoid warnings:
         XYZ = 0; end_pos = [-1,-1,-1]; event = 0; tau_ray = 0; tau_acc = 0; dist_frac_b = 0; dist_frac_c = 0; last_inc = 0; nn2 = 0; i_min = 0;
         
@@ -878,6 +877,8 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
                         ray_pos(i_min) = ray_pos(i_min)+dist_to_clear(i_min)/vx_scale(i_min)*(1-1e-10); % Move ray so that the next boundary it crosses will be i_min
                     end                
                 end % end: interior collision bool
+                % IT TURNS OUT THIS NEXT LINE IS EXTREMELY IMPORTANT
+                ray_pos = ray_pos + sgn*eps.*XYZ; % Give small bump to get off boundary (scale bump with position for floating point reasons (floor(1-eps) = 0, but floor(10-eps) = 10)
             end   % end surface collision bool  
         %% Go back to Preamble part 2
         end % Preamble loop
@@ -911,5 +912,6 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
         end
         rays_end_pos(nn_ray,:) = end_pos;
         rays_events(nn_ray) = event;
+        
     end % End parfor
 end % End function
