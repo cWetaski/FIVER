@@ -1,12 +1,16 @@
-clear all
-close all
-clc
+% Author: Charles Wetaski
+
 %% Coupled Parallel Black Plates with Spectrally Dependent Participating Medium at Equilibrium
 % parallel, infinite plates (note that this is really a 1D problem)
 % This follows:
 % "Interaction of Heat Transfer by Conduction and Radiation in a Nongray Planar Medium" by Crosbie et.al, 1971
+
+
+clear all
+close all
+clc
 if isempty(gcp('nocreate'))
-    parpool('Threads',6);
+    parpool('Threads',4);
 end
 outer_tic = tic;
 %% Params
@@ -168,7 +172,7 @@ for i = 1:N_cases
         VS_dQ = radiativeHeatFlowsMC(N_rays_Psi,VS_T_equil{i},voxel_spaces, ...
             'SpectralBandEdges',spectral_bands_edges,'OutputMode','quiet');
         
-        nondim_radiative_flux = -mean(VS_dQ,[2,3])/(sigma*T2^4); % big F+ in Crosbie Paper, Dividing by vx_scale^2 to convert from flux divergence to flux 
+        nondim_radiative_flux = -mean(VS_dQ/(vx_scale(2)*vx_scale(3)),[2,3])/(sigma*T2^4); % big F+ in Crosbie Paper, Dividing by vx_scale^2 to convert from flux divergence to flux 
         Psi_test(j) = 4*N_param(i)*d_theta_d_tau-nondim_radiative_flux(1); % Eq 33 in paper, Note that VS_dQ = radiative flux in
         
     end
@@ -207,16 +211,24 @@ j = 0;
 
 % Load ref data
 ref_interp = zeros(4,X);
+T_error = zeros(4,X);
 ref_str = ["CrosbieModelA_N0.txt","CrosbieModelB_N0.txt","CrosbieModelA_N005.txt","CrosbieModelB_N005.txt"];
 for i = 1:4
     ref_data = readtable(ref_str(i));
     ref_interp(i,:) = interp1(ref_data{:,'Var1'},ref_data{:,'Var2'},x_vals,'linear','extrap');
+    T_error(i,:) = (ref_interp(i,:)'-nondim_T{i})./(nondim_T{i})*100;
+    max_T_error(i) = max(abs(T_error(i,:)),[],'all');
+    RMSE_T(i) = sqrt(mean(T_error(i,:).^2,'all'));
 end
 Psi_ref = [0.7860;0.6703;0.9051;0.8029];
 Psi_errors = (Psi-Psi_ref)./Psi_ref*100;
+fprintf("Computation time: %0.2f seconds\n",total_simulation_time)
+fprintf("RMSE errors: %0.2f %%, %0.2f %%, %0.2f %%, %0.2f %% \n",RMSE_T(1),RMSE_T(2),RMSE_T(3),RMSE_T(4));
+fprintf("max T errors: %0.2f %%, %0.2f %%, %0.2f %%, %0.2f %% \n",max_T_error(1),max_T_error(2),max_T_error(3),max_T_error(4));
 
 % Plot results
 plot_count = 0;
+j = 0;
 for i = 1:N_cases
     if isequal(spectral_absorption_coeffs{i},[1,0])
         line_style = "-";
@@ -230,13 +242,14 @@ for i = 1:N_cases
         plot_color = color_scheme(2);
         legend_str(j) = "Model B";
         legendp1(j) = plot(nan,nan,'-','Color',plot_color,'LineWidth',line_width,'Parent',firstax);
-    else
-        j = j +1;
-        line_style = "--";
-        legend_str(j) = "Reference Data";
-        legendp1(j) = plot(nan,nan,'--','Color','k','LineWidth',line_width,'Parent',firstax);
-        continue
     end
+    plot_count = plot_count+1;
+    plot(1-x_vals,nondim_T{i},'Color',plot_color,'LineStyle',line_style,'LineWidth',1);
+end
+    j = j+1;
+    line_style = "--";
+    legend_str(j) = "Reference Data";
+    legendp1(j) = plot(nan,nan,'--','Color','k','LineWidth',line_width,'Parent',firstax);
     % if N_param(i) == 0
     %     plot_color = color_scheme(1);
     % elseif N_param(i) == 0.05
@@ -245,9 +258,7 @@ for i = 1:N_cases
     %     continue
     %     plot_color = color_scheme(3);
     % end
-    plot_count = plot_count+1;
-    plot(1-x_vals,nondim_T{i},'Color',plot_color,'LineStyle',line_style,'LineWidth',1);
-end
+    nd
 
 % Plot Reference data
 for i = 1:4
@@ -309,6 +320,7 @@ for i = 1:length(unique_N)
         hline(j).Y = [y_begin(i)+y_begin_adj(i), y_end];
     end
 end
-
+box on
+set(gca,'XMinorTick','on','YMinorTick','on')
 fontsize(f,'increase')
 fontsize(f,'increase')

@@ -47,7 +47,8 @@ function [VS_surf_norms,VS_surf_areas,inds] = getNormalsAndSurfaceAreas(VS_opaq,
     for i = 1:N_surf_voxels
         cur_norm = getNormalVector(inds(i),VS_opaq,ns,vx_scale); % estimate the normal vector (vector is normalized)
         if any(isnan(cur_norm))
-            error("nan normal vector: you can try increasing the neighbourhood size or you can double the resolution with repelem(VS_opaq,[2,2,2])")
+            [x,y,z] = ind2sub(size_VS,inds(i));     
+            error("nan normal vector at [%d %d %d]: you can try increasing the neighbourhood size or you can double the resolution with repelem(VS_opaq,[2,2,2])",x,y,z)
         end
         
         for j = 1:3

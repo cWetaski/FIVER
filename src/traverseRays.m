@@ -30,8 +30,8 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
     %       3 == surface absorption: Absorbed by surface
     %       4 == medium self-absorption: Absorbed by medium from which it was emitted without ever exiting
     %% Pre-preamble
-
-    max_loops = 50; % Set maximum number of loops (each iteration of the outer loop indicates a new reflection or refraction event)
+    acceptance_angle = 0; % A surface collision only occurs if the dot product of the surface normal vector and the ray direction vector is less than this value (default == 0).
+    max_loops = 100; % Set maximum number of loops (each iteration of the outer loop indicates a new reflection or refraction event)
     N_rays = size(rays_pos_start,1);
     rays_end_pos = zeros(N_rays,3);
     rays_events = zeros(N_rays,1);
@@ -220,7 +220,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
                                     last_inc = ib;
                                     interior_collision_bool = true; % edge case, crossed into non-surface opaque voxel
                                     break
-                                elseif dot(surf_norm,ray_dir) < 0
+                                elseif dot(surf_norm,ray_dir) < acceptance_angle
                                     surface_collision_bool = true;   % collision with opaque surface voxel
                                     break
                                 end
@@ -279,7 +279,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
                                     last_inc = ic;
                                     interior_collision_bool = true; % edge case, crossed into non-surface opaque voxel
                                     break
-                                elseif dot(surf_norm,ray_dir) < 0
+                                elseif dot(surf_norm,ray_dir) < acceptance_angle
                                     surface_collision_bool = true;   % collision with opaque surface voxel
                                     break
                                 end
@@ -351,7 +351,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
                                     last_inc = ic;
                                     interior_collision_bool = true; % edge case, crossed into non-surface opaque voxel
                                     break
-                                elseif dot(surf_norm,ray_dir) < 0
+                                elseif dot(surf_norm,ray_dir) < acceptance_angle
                                     surface_collision_bool = true;   % collision with opaque surface voxel
                                     break
                                 end
@@ -410,7 +410,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
                                     last_inc = ib;
                                     interior_collision_bool = true; % edge case, crossed into non-surface opaque voxel
                                     break
-                                elseif dot(surf_norm,ray_dir) < 0
+                                elseif dot(surf_norm,ray_dir) < acceptance_angle
                                     surface_collision_bool = true;   % collision with opaque surface voxel
                                     break
                                 end
@@ -483,7 +483,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
                                 last_inc = ib;
                                 interior_collision_bool = true; % edge case, crossed into non-surface opaque voxel
                                 break
-                            elseif dot(surf_norm,ray_dir) < 0
+                            elseif dot(surf_norm,ray_dir) < acceptance_angle
                                 surface_collision_bool = true;   % collision with opaque surface voxel
                                 break
                             end
@@ -560,7 +560,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
                                     last_inc = ic;
                                     interior_collision_bool = true; % edge case, crossed into non-surface opaque voxel
                                     break
-                                elseif dot(surf_norm,ray_dir) < 0
+                                elseif dot(surf_norm,ray_dir) < acceptance_angle
                                     surface_collision_bool = true;   % collision with opaque surface voxel
                                     break
                                 end
@@ -633,7 +633,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
                         last_inc = ia;
                         interior_collision_bool = true; % edge case, crossed into non-surface opaque voxel
                         break
-                    elseif dot(surf_norm,ray_dir) < 0
+                    elseif dot(surf_norm,ray_dir) < acceptance_angle
                         surface_collision_bool = true;   % collision with opaque surface voxel
                         break
                     end
@@ -718,7 +718,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
                     % This is the most problematic part of the code, in general
                     % If the domain is not nice, we can get infinite loops of reemisions (up to the maximum loop_count)
                     % These stuck rays take up a lot of computation time and don't benefit the solution
-                    if dot(surf_norm,ray_dir) < 0
+                    if dot(surf_norm,ray_dir) < acceptance_angle
                         end_pos = XYZ_prev;
                         event = 3;
                         break
@@ -874,7 +874,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
                                 t_min = time_to_clear(ii);
                             end
                         end
-                        ray_pos(last_inc) = ray_pos(last_inc) - 0.2*sgn(last_inc); % Move ray a little bit backward from boundary
+                        ray_pos(last_inc) = ray_pos(last_inc) - 0.1*sgn(last_inc); % Move ray a little bit backward from boundary
                         ray_pos(i_min) = ray_pos(i_min)+dist_to_clear(i_min)/vx_scale(i_min)*(1-1e-10); % Move ray so that the next boundary it crosses will be i_min
                     end                
                 end % end: interior collision bool
