@@ -83,7 +83,7 @@ function n = getNormalVector(P,VS_logical,ns,Vxyz)
     ii=(ii-(ns+1))*Vxyz(1);
     jj=(jj-(ns+1))*Vxyz(2);
     kk=(kk-(ns+1))*Vxyz(3); % converted -ns:ns indexes, scaled by Vxyz
-
+    
     v=[ii jj kk];
 
     ii(~any(v,2))=[];
