@@ -1,7 +1,7 @@
 ## Author info
 This code was developed by Charles Wetaski under the supervision of Emiliano Casati at ETH Zürich. It is an extension of the work from Sebastian Sas-Brunser.
 
-If you have questions, please email charles@wetaski.com. Please cite according to the BibTeX entry in `citation.bib`.
+Please cite according to the BibTeX entry in `citation.bib`. If you have questions, please email charles@wetaski.com.
 
 # FIVER
 FIVER (FInite VolumE and Ray tracer) is a MATLAB-based set of tools which can be used to solve heat transfer problems involving radiation. This code is an extension of the work of Sebastian Sas-Brunser, described in [1].
