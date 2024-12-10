@@ -4,7 +4,7 @@
 
 function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start,VS_opaq,VS_opaq_eps,VS_surf_norms,VS_PM_kappa,VS_nn,reflective_BCs,vx_scale,size_VS)
     % TRAVERSERAYS - Traces a set of rays from starting position and direction through voxel space until absorption or
-    %                 exiting the voxel space. 
+    %                 exiting the vox\el space. 
     %                   
     % INPUTS:
     %   rays_pos_start (Nx3 double) [vx]:               Positions where rays originate
