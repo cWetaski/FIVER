@@ -6,7 +6,9 @@ classdef ExternalFlux < Flux
     %EXTERNALFLUX Defines an external flux which is applied to a voxel space
     %   The flux is defined positionally in 2 dimensions x and y (z-component of position from ray_gen function is ignored) 
     %   with direction vectors always having z-component >0, and then the flux is rotated according to the specified 
-    %   boundary.
+    %   boundary. The flux has to be defined such that its dimension in the x-y plane matches the dimension of the desired boundary
+    %   e.g., if your domain has size = [4,3,2] and you want to define a flux in the on the right boundary (y-z) plane,
+    %       then your input x-y flux cannot return x-y values which exceed x = 3 or y = 2.
     %
     
     properties
@@ -39,10 +41,7 @@ classdef ExternalFlux < Flux
             rays_pos = rays(:,1:2); % Take only x and y position components
             rays_dir = rays(:,4:6);
 
-            %% Rotate the generated points and vectors around the center point of the domain so that they are in the appropriate plane
-            % https://math.stackexchange.com/questions/2093314/rotation-matrix-of-rotation-around-a-point-other-than-the-origin
-            center_point = obj.size_VS/2; % Minimum of domain is always 0 in all 3 axes
-            switch obj.boundary % Define rotation matrix based on boundary that flux is entering through
+            switch obj.boundary 
                 case 'left' % Transform so that points lie in y-z plane, positive z-component of direction becomes positive x-component
                     new_order = [3,1,2];
                     flip_vec = [1,1,1];
