@@ -7,7 +7,7 @@ clc
 
 %% Params
 % Plates in YZ plane, separated by distance X
-X = 200;
+X = 100;
 Y = 2; % Y and Z boundaries will be specularly reflecting
 Z = 2;
 
@@ -15,7 +15,7 @@ N_rays = 0.5*10^6; % Set number of rays per iteration (can be an array of rays)
 N_par_workers = 4; % Set number of parallel workers you wish to use
 
 max_itr = 200; % Maximum number of iterations we allow
-tau_L = 10; % Available values: 0.01, 0.1, 0.5, 1, 2, 10
+tau_L = 1; % Available values: 0.01, 0.1, 0.5, 1, 2, 10
 
 % Temperature values are arbitrary (solution is nondimensionalized)
 T1 = 1000; % [K]: Temperature of plate 1 (surface at x = 1) 
