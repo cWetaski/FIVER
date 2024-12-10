@@ -1,6 +1,6 @@
 % ©2024 ETH Zurich, Charles Wetaski, Sebastian Sas Brunser, Emiliano Casati
 %   AUTHOR: Charles Wetaski
-%   LAST CHECKED: 2024-09-06
+%   LAST CHECKED: 2024-12-10
 
 classdef ExternalFlux < Flux
     %EXTERNALFLUX Defines an external flux which is applied to a voxel space
@@ -25,9 +25,7 @@ classdef ExternalFlux < Flux
         end
         
         function [rays_pos,rays_dir] = GenerateRays(obj,N_rays)
-            %   Detailed explanation goes here
-
-
+            %   Generate rays
             rays = obj.ray_gen_function(N_rays);
 
             if ~(all(rays(:,3)==0))
@@ -45,42 +43,43 @@ classdef ExternalFlux < Flux
             % https://math.stackexchange.com/questions/2093314/rotation-matrix-of-rotation-around-a-point-other-than-the-origin
             center_point = obj.size_VS/2; % Minimum of domain is always 0 in all 3 axes
             switch obj.boundary % Define rotation matrix based on boundary that flux is entering through
-                case 'left' % Rotate so that points lie in y-z plane, positive z-component of direction becomes positive x-component
-                            % i.e. counterclockwise rotation of 90 degrees about the y-axis
-                    M_rot = [ 0,  0,  1;...
-                              0,  1,  0;...
-                             -1,  0,  0]; 
+                case 'left' % Transform so that points lie in y-z plane, positive z-component of direction becomes positive x-component
+                    new_order = [3,1,2];
+                    flip_vec = [1,1,1];
+                    shift_vec = [0,0,0];
+                    
+                case 'right' % Transform so that points lie in y-z plane, positive z-component of direction becomes negative x-component
+                             % Shift to +x boundary
+                    new_order = [3,1,2];
+                    flip_vec = [-1,1,1];
+                    shift_vec = [obj.size_VS(1),0,0];
 
-                case 'right' % Rotate so that points lie in y-z plane, positive z-component of direction becomes negative x-component
-                             % i.e. clockwise rotation of 90 degrees about the y-axis
-                    M_rot = [ 0,  0, -1;...
-                              0,  1,  0;...
-                              1,  0,  0];
+                case 'bottom' % Transform so that points lie in x-z plane, positive z-component of direction becomes positive y-component 
+                    new_order = [2,3,1];
+                    flip_vec = [1,1,1];
+                    shift_vec = [0,0,0];
 
-                case 'bottom' % Rotate so that points lie in x-z plane, positive z-component of direction becomes positive y-component 
-                              % i.e. clockwise rotation of 90 degrees about the x-axis
-                    M_rot = [ 1,  0,  0;...
-                              0,  0,  1;...
-                              0, -1,  0];
+                case 'top' % Transform so that points lie in x-z plane, positive z-component of direction becomes negative y-component 
+                           % Shift to +y boundary
+                    new_order = [2,3,1];
+                    flip_vec = [1,-1,1];
+                    shift_vec = [0,obj.size_VS(2),0];
 
-                case 'top' % Rotate so that points lie in x-z plane, positive z-component of direction becomes negative y-component 
-                           % i.e. counterclockwise rotation of 90 degrees about the x-axis
-                    M_rot = [ 1,  0,  0;...
-                              0,  0, -1;...
-                              0,  1,  0];
+                case 'back' % No transform required, this is the x-y plane with positive z-component pointing into the domain
+                   new_order = [1,2,3];
+                   flip_vec = [1,1,1];
+                   shift_vec = [0,0,0];
 
-                case 'back' % No rotation required, this is the x-y plane with positive z-component pointing into the domain
-                    M_rot = eye(3); % Identity matrix
-
-                case 'front' % Rotate 180 degrees around either the x or y axis (or both)
-                             % we will rotate about the y axis since it's easier to rotate my right-hand in this way when I'm doing the right-hand rule
-                    M_rot = [-1,  0,  0;...
-                              0,  1,  0;...
-                              0,  0, -1];
+                case 'front' % Flip z coordinate and shift to +z boundary
+                   new_order = [1,2,3];
+                   flip_vec = [1,1,-1];
+                   shift_vec = [0,0,0];
             end
             rays_pos = [rays_pos,zeros(N_rays,1)];
-            rays_pos = (M_rot*(rays_pos - center_point)')'+center_point; 
-            rays_dir = (M_rot*rays_dir')';
+            rays_pos = rays_pos(:,new_order);
+            rays_pos = rays_pos+shift_vec;
+            rays_dir = rays_dir(:,new_order).*flip_vec;
+            
         end
     end
 end

@@ -41,7 +41,7 @@ function [rays_end_pos,rays_events] = traverseRays(rays_pos_start,rays_dir_start
     %else
     %    delete(gcp) % No parallel!
     end
-    for nn_ray = 1:N_rays
+    parfor nn_ray = 1:N_rays
         %% Initialize temporary variables to avoid warnings:
         XYZ = 0; end_pos = [-1,-1,-1]; event = 0; tau_ray = 0; tau_acc = 0; dist_frac_b = 0; dist_frac_c = 0; last_inc = 0; nn2 = 0; i_min = 0;
         
