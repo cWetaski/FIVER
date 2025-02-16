@@ -226,6 +226,7 @@ fprintf("Computation time: %0.2f seconds\n",total_simulation_time)
 fprintf("RMSE errors: %0.2f %%, %0.2f %%, %0.2f %%, %0.2f %% \n",RMSE_T(1),RMSE_T(2),RMSE_T(3),RMSE_T(4));
 fprintf("max T errors: %0.2f %%, %0.2f %%, %0.2f %%, %0.2f %% \n",max_T_error(1),max_T_error(2),max_T_error(3),max_T_error(4));
 
+data_table = table();
 % Plot results
 plot_count = 0;
 j = 0;
@@ -245,6 +246,8 @@ for i = 1:N_cases
     end
     plot_count = plot_count+1;
     plot(1-x_vals,nondim_T{i},'Color',plot_color,'LineStyle',line_style,'LineWidth',1);
+    data_table(strcat('x_vals_',legend_str,'_','N=',N_param_strings(i))) = interp1;
+    data_table(strcat('x_vals_',legend_str,'_','N=',N_param_strings(i))) = interp1
 end
     j = j+1;
     line_style = "--";

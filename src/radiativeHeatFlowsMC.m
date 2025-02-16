@@ -128,14 +128,14 @@ function [VS_dQ, VS_Q_emit_no_self,VS_Q_self_absorb] = radiativeHeatFlowsMC(N_ra
     if Q_emit_tot == 0
         VS_dQ = zeros(size_VS);
         VS_Q_emit_no_self = zeros(size_VS);
-        VS_self_absorb = zeros(size_VS);
+        %VS_self_absorb = zeros(size_VS);
         return
     end
     power_per_ray = Q_emit_tot/N_rays; % [W/ray]
 
     % Determine number of emissions from each wavelength band
-    PDF_emit_band = (Q_emit_tot_band)/Q_emit_tot; % PDF of emissions by wavelength band
-    CDF_emit_band = [0;cumsum(PDF_emit_band)]; % CDF of emissions by wavelength band
+    %PDF_emit_band = (Q_emit_tot_band)/Q_emit_tot; % PDF of emissions by wavelength band
+    %CDF_emit_band = [0;cumsum(PDF_emit_band)]; % CDF of emissions by wavelength band
     
     %N_rays_band = histcounts(rand(N_rays,1),CDF_emit_band)'; % Determine how many rays emitted from each band probablistically
     N_rays_band = floor(N_rays*(Q_emit_tot_band)/Q_emit_tot);
@@ -155,7 +155,7 @@ function [VS_dQ, VS_Q_emit_no_self,VS_Q_self_absorb] = radiativeHeatFlowsMC(N_ra
     
     %% Initialize results arrays
     emission_counts = zeros(N_vx_tot,1); % Combined emission counts vector
-    absorption_counts_PM =zeros(N_vx_tot,1);
+    %absorption_counts_PM =zeros(N_vx_tot,1);
     absorption_pos_PM = cell(N_bands,1); % Absorptions positions
     absorption_pos_surf = cell(N_bands,1);
     self_absorption_pos = cell(N_bands,1);
