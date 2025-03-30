@@ -16,15 +16,15 @@ total_tic = tic;
 % Define cylinder radius 
 params.R_vx = 100; % Use multiple of 4 to ensure correct disk height (height is 1/2 radius, and then we have z-axis symmetry for 1/4)
 params.N_rays = 4e7; % Number of rays per step
-params.time_step_sizes = [0.02,0.05,0.1,0.2,0.4,0.5,1];  % Array of time steps increasing in size 
-params.time_step_changes = [0.1,1,2,4,10,20,100]; % Tells us when to go to the next time step or (for the last value) end the simulation
+params.time_step_sizes = [0.1];  % Array of time steps increasing in size 
+params.time_step_changes = [100]; % Tells us when to go to the next time step or (for the last value) end the simulation
 params.use_internal_itr = false; % Use internal iteration on each time step > 0.1 (see Transient Cond Rad)
 params.ns = 2; % Neighbourhood size for normals -> used for disk padding too
 params.wavelength_edges = [linspace(0.3,5,6),1e6]; % Define lambda spectral bands (in um) (use 8 linear bands as in paper)
 params.kappa_source = 'abs_coeff_paper.txt'; % 'extinction_coeff_data.txt'
-params.simulation_name = sprintf('TransientDiskCoolingSymmetric_R%d',params.R_vx);
+params.simulation_name = sprintf('TransientDiskCoolingSymmetric_R%d_01',params.R_vx);
 
-use_prev = true;
+use_prev = false;
 
 %% Unpack params -- seems pointless but writing the code in this way makes it very easy to functionalize
 R_vx = params.R_vx;
@@ -67,7 +67,7 @@ sigma = 5.670374419*10^(-8); % [W/m^2-K^4];
 N_bands = length(wavelength_edges)-1;
 H_vx = round(L/R*R_vx/2); % half the Z dimension of disk in voxels based on physical dimensions and voxel diameter
 size_VS = [R_vx+1+ns,R_vx+1+ns,H_vx+1+ns];
-vx_scale = R/(R_vx); % [m/vx]
+vx_scale = [R_vx, R_vx, H_vx]./size_VS; % [m/vx]
 
 % total time steps
 all_time_vals = 0;
@@ -120,13 +120,13 @@ VS_opaq_PM = VS_wall;
 VS_opaq_eps_PM = double(VS_opaq_PM); % Walls are black
 VS_n = ones(size_VS);
 VS_n(VS_disk) = 2; % Placeholder value for calculating surface normals at refractive interface
-[VS_norms_PM, VS_surf_areas_PM] = getNormalsAndSurfaceAreas(VS_opaq_PM,ns,VS_n); % Get surface norms;
+[VS_norms_PM, VS_surf_areas_PM] = getNormalsAndSurfaceAreas(VS_opaq_PM,vx_scale,ns,VS_n); % Get surface norms;
         
 
 VS_opaq_no_PM = VS_wall;
 VS_opaq_no_PM(VS_disk) = true;
 VS_opaq_eps_no_PM = double(VS_opaq_no_PM)*opaq_eps;
-[VS_norms_no_PM,VS_surf_areas_no_PM] = getNormalsAndSurfaceAreas(VS_opaq_no_PM,ns);
+[VS_norms_no_PM,VS_surf_areas_no_PM] = getNormalsAndSurfaceAreas(VS_opaq_no_PM,vx_scale,ns);
 VS_n_no_PM = ones(size_VS);
 VS_PM_kappa_no_PM = zeros(size_VS);
 
@@ -158,7 +158,7 @@ for ii = 1:N_bands
         VS_n = ones(size_VS);
         VS_n(VS_disk) = nn_disk(ii);
         VS_PM_kappa = zeros(size_VS);
-        VS_PM_kappa(VS_disk) = kappa_disk(ii)*vx_scale; % 1/vx;
+        VS_PM_kappa(VS_disk) = kappa_disk(ii); % 1/vx;
 
         voxel_space.surface_normals = VS_norms_PM;
         voxel_space.surface_areas = VS_surf_areas_PM;
