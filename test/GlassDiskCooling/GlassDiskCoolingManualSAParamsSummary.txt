@@ -1,0 +1,2 @@
+R_vx,L_vx,N_rays,use_internal_itr,ns,use_manual_surface_area,kappa_source,simulation_name,total_simulation_time,cooling_time,N_bands,RMSE_center,RMSE_top,note
+30,40,3000000,0,3,1,abs_coeff_paper.txt,TransientDiskCoolingSymmetric,3494.350027,100,8,0.596151129983662,1.08438538814743,Interpolated to center and surface temperature
